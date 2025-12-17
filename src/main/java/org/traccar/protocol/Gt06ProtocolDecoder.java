@@ -134,6 +134,7 @@ public class Gt06ProtocolDecoder extends BaseProtocolDecoder {
         SEEWORLD,
         RFID,
         LW4G,
+        TR05,
     }
 
     private Variant variant;
@@ -602,7 +603,7 @@ public class Gt06ProtocolDecoder extends BaseProtocolDecoder {
 
             return null;
 
-        } else if ((type == MSG_WIFI && variant != Variant.RFID) || type == MSG_WIFI_2 || type == MSG_WIFI_4) {
+        } else if ((type == MSG_WIFI && variant != Variant.RFID && variant != Variant.TR05) || type == MSG_WIFI_2 || type == MSG_WIFI_4) {
 
             ByteBuf time = buf.readSlice(6);
             DateBuilder dateBuilder = new DateBuilder()
@@ -1570,6 +1571,8 @@ public class Gt06ProtocolDecoder extends BaseProtocolDecoder {
             variant = Variant.SEEWORLD;
         } else if (header == 0x7878 && type == MSG_GPS_LBS_RFID && length == 0x28) {
             variant = Variant.RFID;
+        } else if (header == 0x7878 && type == MSG_GPS_LBS_RFID && length == 0x27) {
+            variant = Variant.TR05;
         } else if (header == 0x7878 && type == MSG_GPS_LBS_STATUS_5 && length == 0x40) {
             variant = Variant.LW4G;
         } else {

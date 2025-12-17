@@ -582,6 +582,10 @@ public class Gt06ProtocolDecoderTest extends ProtocolTest {
                 "78783c22010357789648774484180c06142038180c06142038cb03313ee4061fe98300185e090000000000000000460984284c000200000000017101d6f35d0d0a"),
                 Position.KEY_HOURS, 22140000);
 
+        verifyPosition(decoder, binary(
+                "78782717190c11002807cd0055b44e066fa7eb00180002d40b0a84003d964406640e02000000001911130d0a"),
+                position("2025-12-17 00:40:07.000", true, -3.120399, -59.989322)); // TR05
+
     }
 
 }
