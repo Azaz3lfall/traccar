@@ -669,6 +669,14 @@ public class Gt06ProtocolDecoder extends BaseProtocolDecoder {
 
             getLastLocation(position, null);
 
+            if (dataLength > 2) {
+                if (BufferUtil.isPrintable(buf, dataLength - 2)) {
+                    position.set(Position.KEY_DRIVER_UNIQUE_ID, BufferUtil.readString(buf, dataLength - 2).trim());
+                } else {
+                    position.set(Position.KEY_DRIVER_UNIQUE_ID, ByteBufUtil.hexDump(buf.readSlice(dataLength - 2)));
+                }
+            }
+
             position.set(Position.KEY_POWER, buf.readShort() * 0.01);
 
             return position;
