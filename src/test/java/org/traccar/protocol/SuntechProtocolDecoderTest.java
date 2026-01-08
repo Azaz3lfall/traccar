@@ -2,6 +2,8 @@ package org.traccar.protocol;
 
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import org.traccar.ProtocolTest;
 import org.traccar.model.Position;
 
@@ -324,7 +326,29 @@ public class SuntechProtocolDecoderTest extends ProtocolTest {
 
         verifyAttribute(decoder, buffer(
                 "ST300STT;007878646;40;319H;20250521;21:52:14;54728;-30.021829;-051.204818;000.000;077.61;0;0;35310247;14.33;000000;1;1306;069596;4.1;1;23675;724;5;-75;1351;1"), 
-                Position.KEY_DRIVER_UNIQUE_ID, null);      
+                Position.KEY_DRIVER_UNIQUE_ID, null);
+
+    }
+
+    @Test
+    public void testDecodeUexSgbras() throws Exception {
+
+        var decoder = inject(new SuntechProtocolDecoder(null));
+
+        Position position1 = (Position) decoder.decode(null, null, buffer(
+                "UEX;1610013899;FFF83F;161;3.0.7;1;20260108;12:54:36;-15.881590;-48.019793;0.07;349.11;20;1;00000001;00000000;23;SGBRAS|MATRICULA|1111\r\n;37;;"));
+        assertNotNull(position1);
+        assertEquals("1111", position1.getAttributes().get(Position.KEY_DRIVER_UNIQUE_ID));
+        assertEquals("SGBRAS", position1.getAttributes().get("manufacturer"));
+        assertEquals("MATRICULA", position1.getAttributes().get("action"));
+
+        Position position2 = (Position) decoder.decode(null, null, buffer(
+                "UEX;1610013899;FFF83F;161;3.0.7;1;20260108;12:54:44;-15.881590;-48.019793;0.11;349.11;21;1;00000001;00000000;38;SGBRAS|ATALHO|1111|Inicio da Jornada\r\n;E9;;"));
+        assertNotNull(position2);
+        assertEquals("1111", position2.getAttributes().get(Position.KEY_DRIVER_UNIQUE_ID));
+        assertEquals("SGBRAS", position2.getAttributes().get("manufacturer"));
+        assertEquals("ATALHO", position2.getAttributes().get("action"));
+        assertEquals("Inicio da Jornada", position2.getAttributes().get("description"));
 
     }
 

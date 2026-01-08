@@ -320,6 +320,17 @@ public class SuntechProtocolDecoder extends BaseProtocolDecoder {
                         case 'Q' -> position.set("drivingQuality", Integer.parseInt(value, 16));
                     }
                 }
+            } else if (attribute.startsWith("SGBRAS")) {
+                String[] parts = attribute.split("\\|");
+                if (parts.length >= 3) {
+                    position.set("manufacturer", parts[0].trim());
+                    position.set("action", parts[1].trim());
+                    position.set(Position.KEY_DRIVER_UNIQUE_ID, parts[2].trim());
+                    if (parts.length >= 4) {
+                        position.set("description", parts[3].trim());
+                    }
+                }
+                position.set("serial", attribute.trim());
             } else {
                 position.set("serial", attribute.trim());
             }
