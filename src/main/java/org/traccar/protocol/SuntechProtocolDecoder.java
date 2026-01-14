@@ -331,6 +331,18 @@ public class SuntechProtocolDecoder extends BaseProtocolDecoder {
                     }
                 }
                 position.set("serial", attribute.trim());
+            } else if (attribute.startsWith("TPT")) {
+                String[] parts = attribute.split("\\|");
+                if (parts.length >= 6) {
+                    position.set("manufacturer", parts[0].trim());
+                    position.set("action", parts[4].trim());
+                    if (parts[3].trim().equals("IM")) {
+                        position.set(Position.KEY_DRIVER_UNIQUE_ID, parts[5].trim());
+                    } else if (parts[3].trim().equals("MC")) {
+                        position.set("description", parts[5].trim());
+                    }
+                }
+                position.set("serial", attribute.trim());
             } else {
                 position.set("serial", attribute.trim());
             }

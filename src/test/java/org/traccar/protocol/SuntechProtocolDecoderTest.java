@@ -352,4 +352,25 @@ public class SuntechProtocolDecoderTest extends ProtocolTest {
 
     }
 
+    @Test
+    public void testDecodeUexTpt() throws Exception {
+
+        var decoder = inject(new SuntechProtocolDecoder(null));
+
+        Position position1 = (Position) decoder.decode(null, null, buffer(
+                "ST300UEX;807883928;45;319;20260113;21:18:45;7a911;-15.879165;-048.019877;000.833;108.26;6;1;0;12.25;000000;26;TPT|00046|01|IM|MD|111101\r;18;000440;0.0;1;00000000000000;0"));
+        assertNotNull(position1);
+        assertEquals("111101", position1.getAttributes().get(Position.KEY_DRIVER_UNIQUE_ID));
+        assertEquals("TPT", position1.getAttributes().get("manufacturer"));
+        assertEquals("MD", position1.getAttributes().get("action"));
+
+        Position position2 = (Position) decoder.decode(null, null, buffer(
+                "ST300UEX;807883928;45;319;20260113;21:18:45;7a911;-15.879165;-048.019877;000.833;108.26;6;1;0;12.25;000000;44;TPT|00046|01|MC|Operacionais|Parada para pesagem\r;18;000440;0.0;1;00000000000000;0"));
+        assertNotNull(position2);
+        assertEquals("TPT", position2.getAttributes().get("manufacturer"));
+        assertEquals("Operacionais", position2.getAttributes().get("action"));
+        assertEquals("Parada para pesagem", position2.getAttributes().get("description"));
+
+    }
+
 }
