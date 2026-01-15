@@ -371,6 +371,21 @@ public class SuntechProtocolDecoderTest extends ProtocolTest {
         assertEquals("Operacionais", position2.getAttributes().get("action"));
         assertEquals("Parada para pesagem", position2.getAttributes().get("description"));
 
+        Position position3 = (Position) decoder.decode(null, null, buffer(
+                "ST300UEX;807883928;45;319;20260113;21:18:45;7a911;-15.879165;-048.019877;000.833;108.26;6;1;0;12.25;000000;26;TPT|00046|01|IM|ML|3AACD329\r;18;000440;0.0;1;00000000000000;0"));
+        assertNotNull(position3);
+        assertEquals("3AACD329", position3.getAttributes().get(Position.KEY_DRIVER_UNIQUE_ID));
+
+        Position position4 = (Position) decoder.decode(null, null, buffer(
+                "ST300UEX;807883928;45;319;20260113;21:18:45;7a911;-15.879165;-048.019877;000.833;108.26;6;1;0;12.25;000000;21;TPT|00046|01|TL|0|teste\r;18;000440;0.0;1;00000000000000;0"));
+        assertNotNull(position4);
+        assertEquals("teste", position4.getAttributes().get("description"));
+
+        Position position5 = (Position) decoder.decode(null, null, buffer(
+                "ST300UEX;807883928;45;319;20260113;21:18:45;7a911;-15.879165;-048.019877;000.833;108.26;6;1;0;12.25;000000;26;TPT|00046|01|IM|ML|00000000000000\r;18;000440;0.0;1;00000000000000;0"));
+        assertNotNull(position5);
+        assertEquals(null, position5.getAttributes().get(Position.KEY_DRIVER_UNIQUE_ID));
+
     }
 
 }
