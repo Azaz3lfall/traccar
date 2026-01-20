@@ -388,4 +388,17 @@ public class SuntechProtocolDecoderTest extends ProtocolTest {
 
     }
 
+    @Test
+    public void testDecodeUexSgbt() throws Exception {
+
+        var decoder = inject(new SuntechProtocolDecoder(null));
+
+        Position position = (Position) decoder.decode(null, null, buffer(
+                "ST300UEX;807883476;45;319;20260120;19:10:22;7a911;-15.878868;-048.020137;000.000;308.05;11;1;0;12.25;100000;23;SGBT|1|00|24.94|0.00|\r\n;03;000696;0.0;1;00000000000000;0\r"));
+        assertNotNull(position);
+        assertEquals(24.94, (Double) position.getAttributes().get(Position.PREFIX_TEMP + 1), 0.01);
+        assertEquals("SGBT|1|00|24.94|0.00|", position.getAttributes().get("serial"));
+
+    }
+
 }

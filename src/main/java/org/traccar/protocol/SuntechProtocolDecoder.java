@@ -352,6 +352,12 @@ public class SuntechProtocolDecoder extends BaseProtocolDecoder {
                     }
                 }
                 position.set("serial", attribute.trim());
+            } else if (attribute.startsWith("SGBT")) {
+                String[] parts = attribute.split("\\|");
+                if (parts.length >= 4) {
+                    position.set(Position.PREFIX_TEMP + 1, Double.parseDouble(parts[3]));
+                }
+                position.set("serial", attribute.trim());
             } else {
                 position.set("serial", attribute.trim());
             }
