@@ -302,7 +302,10 @@ public class SuntechProtocolDecoder extends BaseProtocolDecoder {
                     position.set("fuel2", fuel2);
                 }
             } else if (attribute.startsWith("GTSL")) {
-                position.set(Position.KEY_DRIVER_UNIQUE_ID, attribute.split("\\|")[4]);
+                String driverUniqueId = attribute.split("\\|")[4].trim();
+                if (!driverUniqueId.isEmpty() && !driverUniqueId.equals("00000000000000")) {
+                    position.set(Position.KEY_DRIVER_UNIQUE_ID, driverUniqueId);
+                }
             } else if (attribute.contains("=")) {
                 String[] pair = attribute.split("=");
                 if (pair.length >= 2) {
@@ -354,8 +357,11 @@ public class SuntechProtocolDecoder extends BaseProtocolDecoder {
                 position.set("serial", attribute.trim());
             } else if (attribute.startsWith("SGBT")) {
                 String[] parts = attribute.split("\\|");
-                if (parts.length >= 4) {
-                    position.set(Position.PREFIX_TEMP + 1, Double.parseDouble(parts[3]));
+                if (parts.length >= 3) {
+                    String temperature = parts[parts.length == 3 ? 2 : 3].trim();
+                    position.set(Position.PREFIX_TEMP + 1, Double.parseDouble(temperature));
+                    position.set("action", "temperatura");
+                    position.set("description", temperature);
                 }
                 position.set("serial", attribute.trim());
             } else {
@@ -480,7 +486,7 @@ public class SuntechProtocolDecoder extends BaseProtocolDecoder {
             }
 
             if (values.length - index >= (hbm == 1 ? 2 : 7)) {
-                String driverUniqueId = values[index++];
+                String driverUniqueId = values[index++].trim();
                 if (!driverUniqueId.isEmpty() && !driverUniqueId.equals("00000000000000")) {
                     position.set(Position.KEY_DRIVER_UNIQUE_ID, driverUniqueId);
                 }
@@ -889,7 +895,10 @@ public class SuntechProtocolDecoder extends BaseProtocolDecoder {
 
         getLastLocation(position, null);
 
-        position.set(Position.KEY_DRIVER_UNIQUE_ID, values[values.length - 1]);
+        String driverUniqueId = values[values.length - 1].trim();
+        if (!driverUniqueId.isEmpty() && !driverUniqueId.equals("00000000000000")) {
+            position.set(Position.KEY_DRIVER_UNIQUE_ID, driverUniqueId);
+        }
 
         return position;
     }

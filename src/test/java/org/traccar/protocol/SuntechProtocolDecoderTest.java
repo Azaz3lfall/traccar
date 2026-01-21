@@ -310,7 +310,7 @@ public class SuntechProtocolDecoderTest extends ProtocolTest {
 
         verifyAttribute(decoder, buffer(
                 "ST300HTE;511050566;45;308;20200909;13:38:38;0;12.50;001354;0.0;1;0;1;1;0;-27.636632;-052.277933;-27.636675;-052.277947;000.000;002.296;0;00000000000000"),
-                Position.KEY_DRIVER_UNIQUE_ID, "00000000000000");
+                Position.KEY_DRIVER_UNIQUE_ID, null);
 
         verifyAttribute(decoder, buffer(
                 "ST300HTE;100850001;04;248;20110101;00:13:52;167559;12.28;004005;0.0;1;0;3;3;0;-22.881018;-047.070831;-22.881018;-047.070831;000.000;000.000;0;0;3;0;0;0;01E04D44160000"),
@@ -398,6 +398,13 @@ public class SuntechProtocolDecoderTest extends ProtocolTest {
         assertNotNull(position);
         assertEquals(24.94, (Double) position.getAttributes().get(Position.PREFIX_TEMP + 1), 0.01);
         assertEquals("SGBT|1|00|24.94|0.00|", position.getAttributes().get("serial"));
+
+        Position position2 = (Position) decoder.decode(null, null, buffer(
+                "ST300UEX;807883928;45;319;20260121;18:34:21;7a911;-15.878885;-048.020197;003.093;117.16;8;1;1547;12.25;100000;24;SGBT|TEMPERATURA|34.45\r\n;87\r"));
+        assertNotNull(position2);
+        assertEquals(34.45, (Double) position2.getAttributes().get(Position.PREFIX_TEMP + 1), 0.01);
+        assertEquals("temperatura", position2.getAttributes().get("action"));
+        assertEquals("34.45", position2.getAttributes().get("description"));
 
     }
 
