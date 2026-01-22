@@ -73,6 +73,7 @@ public class RstProtocolDecoder extends BaseProtocolDecoder {
             .groupEnd("?")
             .any()
             .text("FIM;")
+            .expression(".*")
             .compile();
 
     @Override
@@ -84,7 +85,7 @@ public class RstProtocolDecoder extends BaseProtocolDecoder {
             return null;
         }
 
-        parser.next(); // archive
+        String archive = parser.next();
         String model = parser.next();
         String firmware = parser.next();
         String serial = parser.next();
@@ -101,10 +102,13 @@ public class RstProtocolDecoder extends BaseProtocolDecoder {
             return null;
         }
 
-        if (parser.hasNext()) {
+        Position position = new Position(getProtocolName());
+        position.setDeviceId(deviceSession.getDeviceId());
+        position.set(Position.KEY_ARCHIVE, archive.equals("L"));
+        position.set(Position.KEY_INDEX, index);
+        position.set(Position.KEY_TYPE, type);
 
-            Position position = new Position(getProtocolName());
-            position.setDeviceId(deviceSession.getDeviceId());
+        if (parser.hasNext()) {
 
             position.setDeviceTime(parser.nextDateTime(Parser.DateTimeFormat.DMY_HMS));
             position.setFixTime(parser.nextDateTime(Parser.DateTimeFormat.DMY_HMS));
@@ -134,24 +138,111 @@ public class RstProtocolDecoder extends BaseProtocolDecoder {
             position.set(Position.KEY_ODOMETER, parser.nextInt());
             position.set(Position.KEY_RSSI, parser.nextInt());
             position.set(Position.PREFIX_TEMP + 1, (int) parser.nextHexInt().byteValue());
-            position.set(Position.KEY_STATUS, (parser.nextHexInt() << 8) + parser.nextHexInt());
 
-            String[] values = parser.next().split(";");
-            if (type == 55) {
-                position.set(Position.KEY_DRIVER_UNIQUE_ID, values[0]);
+            int status1 = parser.nextHexInt();
+            int status2 = parser.nextHexInt();
+            position.set(Position.KEY_STATUS, (status1 << 8) + status2);
+            int charging = BitUtil.between(status2, 6, 8);
+            position.set(Position.KEY_CHARGE, charging == 1 || charging == 3);
+
+            int mode = BitUtil.to(status1, 4);
+            if (mode == 1) {
+                position.set(Position.KEY_IGNITION, true);
+            } else if (mode == 2) {
+                position.set(Position.KEY_IGNITION, false);
+            } else if (mode == 6) {
+                position.set(Position.KEY_ALARM, Position.ALARM_VIBRATION);
+            }
+
+            if (type == 20) {
+                position.set(Position.KEY_ALARM, Position.ALARM_SOS);
+            } else if (type == 40) {
+                position.set(Position.KEY_ALARM, Position.ALARM_VIBRATION);
+            }
+
+            String tail = parser.next();
+            if (tail != null && !tail.isEmpty()) {
+                String[] values = tail.split(";");
+                int valueIndex = 0;
+                if ((type == 1 || type == 2) && values[0].length() == 8) {
+                    try {
+                        long mask = Long.parseLong(values[valueIndex++], 16);
+
+                        int tempCount = (int) BitUtil.from(mask, 28);
+                        for (int i = 0; i < tempCount; i++) {
+                            position.set(Position.PREFIX_TEMP + (i + 2), Integer.parseInt(values[valueIndex++]));
+                        }
+
+                        if (BitUtil.check(mask, 27) || BitUtil.check(mask, 26)) {
+                            valueIndex += 4; // pulse sensor 1
+                        }
+                        if (BitUtil.check(mask, 25) || BitUtil.check(mask, 24)) {
+                            valueIndex += 4; // pulse sensor 2
+                        }
+                        if (BitUtil.check(mask, 23)) {
+                            position.set("partialDistance", Integer.parseInt(values[valueIndex++]));
+                        }
+                        if (BitUtil.check(mask, 22)) {
+                            valueIndex += 30; // LBS info (6 groups of 5 values)
+                        }
+                        if (BitUtil.check(mask, 21)) {
+                            position.set("trailerId", values[valueIndex++]);
+                        }
+                        if (BitUtil.check(mask, 20)) {
+                            valueIndex += 1; // betoneira
+                        }
+                        if (BitUtil.check(mask, 19)) {
+                            valueIndex += 1; // analog fuel
+                        }
+                        if (BitUtil.check(mask, 18)) {
+                            valueIndex += 5; // analog inputs
+                        }
+                        if (BitUtil.check(mask, 17)) {
+                            valueIndex += 1; // sensor maquina
+                        }
+                        if (BitUtil.check(mask, 16)) {
+                            valueIndex += 1; // horimetro RPM
+                        }
+                        if (BitUtil.check(mask, 15)) {
+                            valueIndex += 1; // omnicomm fuel
+                        }
+                        if (BitUtil.check(mask, 14)) {
+                            valueIndex += 2; // humidity
+                        }
+                        if (BitUtil.check(mask, 13)) {
+                            valueIndex += 1; // analog 5
+                        }
+                        if (BitUtil.check(mask, 12)) {
+                            valueIndex += 1; // accelerometer angle
+                        }
+                        if (BitUtil.check(mask, 11)) {
+                            valueIndex += 1; // omnicomm raw
+                        }
+                        if (BitUtil.check(mask, 10)) {
+                            valueIndex += 1; // max vibration
+                        }
+                        if (BitUtil.check(mask, 9)) {
+                            position.set(Position.KEY_DRIVER_UNIQUE_ID, values[valueIndex++]);
+                        }
+                        if (BitUtil.check(mask, 5)) {
+                            position.set(Position.KEY_ODOMETER, Integer.parseInt(values[valueIndex++]));
+                        }
+                    } catch (NumberFormatException e) {
+                        valueIndex = 0;
+                    }
+                }
+
+                if (type == 55 && valueIndex < values.length) {
+                    position.set(Position.KEY_DRIVER_UNIQUE_ID, values[valueIndex]);
+                }
             }
 
             return position;
 
-        } else if (type == 134) {
-
-            Position position = new Position(getProtocolName());
-            position.setDeviceId(deviceSession.getDeviceId());
+        } else if (type == 134 || type == 6) {
 
             getLastLocation(position, null);
-
             position.set(Position.KEY_RESULT, String.valueOf(type));
-
             return position;
 
         } else {

@@ -1,0 +1,11725 @@
+Protocolo de Comunicação
+
+PROTOCOLO DE COMUNICAÇÃO
+ASCII
+RASTREADORES RST
+
+Versão:
+
+1.03
+
+Data:
+
+17 de março de 2016
+
+Número de páginas:
+Nome do arquivo:
+
+Protocolo de Comunicação ASCII RST V1.03.doc
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+1
+
+Protocolo de Comunicação
+CONTROLE DE VERSÃO
+
+Versão
+
+Data
+
+Autor
+
+1.00
+1.01
+
+15.05.2015
+31.08.2015
+
+Ivo Cherobim
+Ivo Cherobim
+
+Descrição
+- Criação do documento
+- Correções gerais no documento
+- Novos dados inclusos nas informações
+adicionais da mensagem de tracking ou tracking
+em sleep
+- Detalhamento da mensagem de evento
+embarcado
+- Novos comandos de configuração do rastreador
+via servidor
+- Alteração do nome do rastreador RST-TG100
+para RST-VTv2
+
+1.02
+
+18.09.2015
+
+Ivo Cherobim
+
+- Inclusão de novas mensagens de configuração
+(comando Alteração de Parâmetro – ID: 177)
+- Inclusão da mensagem de motor ocioso
+
+1.03
+
+07.03.2016
+
+Ivo Cherobim
+
+- Inclusão de novos comandos de configuração
+para versão de firmware V4.14 ou superior
+- Inclusão do procedimento de atualização remota
+do firmware
+- Alteração no formato de envio dos dados dos
+sensores analógicos nos dados adicionais
+- Correção nas mensagens ID: 29 e ID: 30
+
+As informações e dados contidos neste documento são confidenciais e constituem propriedade
+industrial da Sertec Sistemas e Assessoria LTDA somente poderão ser copiadas ou divulgadas no
+todo ou em parte por qualquer meio, mediante autorização prévia por escrito. Sua divulgação não
+autorizada a terceiros constitui infração às Leis do Direito Autoral e da Propriedade Industrial.
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+2
+
+Protocolo de Comunicação
+
+INDICE
+1
+
+INTRODUÇÃO ................................................................................................................................................................6
+
+2
+
+DESCRIÇÃO DO HEADER........................................................................................................................................... 7
+
+3
+
+COMUNICAÇÃO ENTRE O RASTREADOR E O SERVIDOR ............................................................................... 9
+3.1
+
+COMUNICAÇÃO DO RASTREADOR PARA O SERVIDOR ................................................................................................ 9
+
+3.2
+
+COMUNICAÇÃO DO SERVIDOR PARA O RASTREADOR ................................................................................................ 9
+
+4
+
+LED DE STATUS DO RASTREADOR ...................................................................................................................... 10
+
+5
+
+DESCRIÇÃO DAS MENSAGENS DO RASTREADOR ......................................................................................... 11
+5.1
+
+MENSAGEM ID: 1 – TRACKING ........................................................................................................................... 11
+
+5.1.1
+
+Informações adicionais .................................................................................................................................. 18
+
+5.1.2
+
+Detalhamento dos dados adicionais ........................................................................................................... 23
+
+5.2
+
+MENSAGEM ID: 2 – TRACKING EM SLEEP............................................................................................................... 33
+
+5.3
+
+MENSAGEM ID: 3 – IGNIÇÃO LIGADA .............................................................................................................. 33
+
+5.4
+
+MENSAGEM ID: 4 – IGNIÇÃO DESLIGADA ...................................................................................................... 34
+
+5.5
+
+MENSAGEM ID: 5 – INÍCIO DO MODO SLEEP .................................................................................................. 34
+
+5.6
+
+MENSAGEM ID: 6 – ACK DO SERVIDOR PARA O RASTREADOR ............................................................................. 35
+
+5.7
+
+MENSAGEM ID: 7 – RESET DO RASTREADOR......................................................................................................... 35
+
+5.8
+
+MENSAGEM ID: 8 – SOLICITA TIMESTAMP ............................................................................................................ 37
+
+5.9
+
+MENSAGEM ID: 9 – EVENTO SENSOR .................................................................................................................... 37
+
+5.10
+
+MENSAGEM ID: 11 – RESPOSTA PARAMETROS...................................................................................................... 41
+
+5.11
+
+MENSAGEM ID: 12 – RESPOSTA INFORMAÇÕES DO MODEM .................................................................................. 43
+
+5.12
+
+MENSAGEM ID: 13 – RESPOSTA POSIÇÃO ............................................................................................................. 43
+
+5.13
+
+MENSAGEM ID: 20 – EVENTO BOTÃO DE PANICO ................................................................................................. 44
+
+5.14
+
+MENSAGEM ID: 21 – NACK DO SERVIDOR PARA O RASTREADOR.......................................................................... 44
+
+5.15
+
+MENSAGEM ID: 22 – EVENTO PERDA DA ANTENA GPS .......................................................................................... 45
+
+5.16
+
+MENSAGEM ID: 23 – EVENTO CONEXÃO DA ANTENA GPS ..................................................................................... 45
+
+5.17
+
+MENSAGEM ID: 24 – JAMMER DETECTADO .......................................................................................................... 46
+
+5.18
+
+MENSAGEM ID: 25 – EVENTO REMOÇÃO DA BATERIA EXTERNA ........................................................................... 46
+
+5.19
+
+MENSAGEM ID: 26 – EVENTO CONEXÃO DA BATERIA EXTERNA ........................................................................... 47
+
+5.20
+
+MENSAGEM ID: 27 – EVENTO REMOÇÃO DA BATERIA INTERNA............................................................................ 47
+
+5.21
+
+MENSAGEM ID: 28 – EVENTO CONEXÃO DA BATERIA INTERNA ............................................................................ 48
+
+5.22
+
+MENSAGEM ID: 29 – DADOS DA VIAGEM .............................................................................................................. 48
+
+5.23
+
+MENSAGEM ID: 30 – DADOS DO ESTACIONAMENTO ............................................................................................. 52
+
+5.24
+
+MENSAGEM ID: 31 – DEFEITO DE HARDWARE ...................................................................................................... 53
+
+5.25
+
+MENSAGEM ID: 34 – ALVO EXECUTADO............................................................................................................... 54
+
+5.26
+
+MENSAGEM ID: 36 – INÍCIO DO MODO SUPER SLEEP ............................................................................................. 55
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+3
+
+Protocolo de Comunicação
+
+6
+
+5.27
+
+MENSAGEM ID: 37 – TRACKING EM SUPER SLEEP ................................................................................................. 56
+
+5.28
+
+MENSAGEM ID: 38 – BLOQUEIO PELO ANTIFURTO ................................................................................................ 56
+
+5.29
+
+MENSAGEM ID: 39 – DESBLOQUEIO PELO BOTÃO ANTIFURTO .............................................................................. 57
+
+5.30
+
+MENSAGEM ID: 40 – VIOLAÇÃO DO ANTIFURTO ................................................................................................... 57
+
+5.31
+
+MENSAGEM ID: 41 – BLOQUEIO MANOBRISTA...................................................................................................... 58
+
+5.32
+
+MENSAGEM ID: 42 – VIOLAÇÃO MANOBRISTA ..................................................................................................... 58
+
+5.33
+
+MENSAGEM ID: 43 – EVENTO OPERADORA CONECTADA ...................................................................................... 59
+
+5.34
+
+MENSAGEM ID: 44 – EVENTO DEFEITO SENSOR DE TEMPERATURA....................................................................... 60
+
+5.35
+
+MENSAGEM ID: 45 – EVENTO MACRO .................................................................................................................. 60
+
+5.36
+
+MENSAGEM ID: 46 – EVENTO FORMULARIO ......................................................................................................... 61
+
+5.37
+
+MENSAGEM ID: 47 – EVENTO EMBARCADO .......................................................................................................... 63
+
+5.38
+
+MENSAGEM ID: 48 – EVENTO ERRO DE SENHA ..................................................................................................... 77
+
+5.39
+
+MENSAGEM ID: 51 – EVENTO PERDA DE TECLADO ............................................................................................... 78
+
+5.40
+
+MENSAGEM ID: 55 – EVENTO ID DE MOTORISTA .................................................................................................. 78
+
+5.41
+
+MENSAGEM ID: 59 – EVENTO MOTOR OCIOSO ................................................................................................ 79
+
+5.42
+
+MENSAGEM ID: 61 – TESTE DE NÚMERO DE IP ...................................................................................................... 80
+
+5.43
+
+MENSAGEM ID: 63 – RESPOSTA ID DE MOTORISTA CADASTRADO ......................................................... 81
+
+5.44
+
+MENSAGEM ID: 65 – RESPOSTA ID DE CARRETA CADASTRADO ............................................................. 82
+
+5.45
+
+MENSAGEM ID: 69 – RESPOSTA ID DE SLEEP CADASTRADO .................................................................... 83
+
+DESCRIÇÃO DAS MENSAGENS DO SERVIDOR ................................................................................................ 84
+6.1
+
+MENSAGEM ID: 129 – ALTERAÇÃO NÚMERO IP E PORTA ...................................................................................... 84
+
+6.2
+
+MENSAGEM ID: 130 – ALTERAÇÃO APN.............................................................................................................. 84
+
+6.3
+
+MENSAGEM ID: 133 – TIMESTAMP ................................................................................................................... 86
+
+6.4
+
+MENSAGEM ID: 134 – ACK DO RASTREADOR PARA O SERVIDOR................................................................ 86
+
+6.5
+
+MENSAGEM ID: 136 – INFORMAÇÕES PARAMETROS .................................................................................. 87
+
+6.6
+
+MENSAGEM ID: 137 – INFORMAÇÕES DO MODEM E SIMCARD................................................................. 87
+
+6.7
+
+MENSAGEM ID: 142 – RESPOSTA POSICAO RASTREADOR ......................................................................... 88
+
+6.8
+
+MENSAGEM ID: 143 – BLOQUEIO ......................................................................................................................... 88
+
+6.9
+
+MENSAGEM ID: 144 – DESBLOQUEIO ................................................................................................................... 89
+
+6.10
+
+MENSAGEM ID: 145 – CONFIGURAÇÃO DOS SENSORES......................................................................................... 89
+
+6.11
+
+MENSAGEM ID: 149 – NACK DO RASTREADOR PARA O SERVIDOR ............................................................. 92
+
+6.12
+
+MENSAGEM ID: 152 – RESET DO RASTREADOR..................................................................................................... 92
+
+6.13
+
+MENSAGEM ID: 157 – LIMPA LOG RASTREADOR .................................................................................................. 93
+
+6.14
+
+MENSAGEM ID: 160 – APAGA ALVO ..................................................................................................................... 93
+
+6.15
+
+MENSAGEM ID: 161 – CONFIGURA ALVO ............................................................................................................. 94
+
+6.16
+
+MENSAGEM ID: 164 – CONFIGURA ANTI-FURTO ................................................................................................... 95
+
+6.17
+
+MENSAGEM ID: 170 – CONFIGURAÇÃO DOS ATUADORES ..................................................................................... 96
+
+6.18
+
+MENSAGEM ID: 174 – BLOQUEIO SILENCIOSO .................................................................................................... 100
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+4
+
+Protocolo de Comunicação
+6.19
+
+MENSAGEM ID: 177 – ALTERAÇÃO PARÂMETRO ................................................................................................ 101
+
+6.20
+
+MENSAGEM ID: 178 – ATUAÇÃO ........................................................................................................................ 126
+
+6.21
+
+MENSAGEM ID: 182 – CONFIGURA PONTO DE CONTROLE ................................................................................... 128
+
+6.22
+
+MENSAGEM ID: 184 – CONFIGURA ALERTA DE TEMPERATURA .......................................................................... 130
+
+6.23
+
+MENSAGEM ID: 186 – CONFIGURA ID DE MOTORISTA......................................................................................... 132
+
+6.24
+
+MENSAGEM ID: 188 – CONFIGURA ID DE CARRETA ............................................................................................ 134
+
+6.25
+
+MENSAGEM ID: 192 – CONFIGURA ID DE SLEEP ............................................................................................... 136
+
+7
+
+DESCRIÇÃO DO FORMATO REDUZIDO ............................................................................................................. 138
+
+8
+
+DESCRIÇÃO DA ATUALIZAÇÃO REMOTA DO FIRMWARE........................................................................... 143
+8.1
+
+FORMA DE FUNCIONAMENTO DA ATUALIZAÇÃO .................................................................................................. 143
+
+8.2
+
+FORMATO DO ARQUIVO ........................................................................................................................................ 144
+
+8.3
+
+FORMATO DAS MENSAGENS .................................................................................................................................. 147
+
+8.4
+
+PASSO A PASSO PARA ATUALIZAÇÃO .................................................................................................................... 149
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+5
+
+Protocolo de Comunicação
+
+1 INTRODUÇÃO
+Este documento descreve todo o protocolo de comunicação ASCII entre os rastreadores RST,
+para versões de firmware superior ou igual a V4.14, e o servidor de comunicação. Para a
+comunicação entre o rastreador e o servidor é usado o protocolo UDP. Atualmente, o rastreador não
+suporta a comunicação TCP.
+É possível utilizar uma versão reduzida do protocolo ASCII, no final do documento tem o
+detalhamento desse formato.
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+6
+
+Protocolo de Comunicação
+
+2 DESCRIÇÃO DO HEADER
+Abaixo segue o header do protocolo do rastreador RST-VT. Esse header é igual para todas as
+mensagens que serão enviadas do rastreador para o servidor ou do servidor para o rastreador.
+
+Nº
+
+Informação
+
+Caracteres
+
+Descrição
+
+Exemplo
+
+Preamble do protocolo
+A = mensagem atual
+L = mensagem de log
+Descrição do modelo de
+hardware do rastreador
+Versão atual do firmware do
+rastreador
+Informa o número serial do
+equipamento - decimal
+Informa o número de
+sequencial atual da
+mensagem, valor de 1 até
+255 - decimal
+Informa o tipo da mensagem
+enviada - decimal
+
+RST
+A
+
+1
+2
+
+Preamble
+Status da mensagem
+
+3
+1
+
+3
+
+Modelo do rastreador
+
+Variável
+
+4
+
+Versão de firmware
+
+5
+
+5
+
+Número serial do
+equipamento
+Número de sequência da
+mensagem
+
+9
+
+6
+
+7
+
+Tipo da mensagem
+
+Variável
+
+Variável
+
+RST-LC
+V4.14
+014030001
+23
+
+1
+
+Tabela 2-1 – Header do protocolo
+
+As informações são separadas com o caractere ponto e vírgula ( ; ). E todos os valores são em
+notação decimal, exceto os campos indicados.
+Exemplo de header:
+RST;A;RST-LC;V4.14;014030001;23;1;..........
+Número de sequência:
+O número de sequência da mensagem é incrementado a cada mensagem enviada para o
+gateway com sucesso. E o rastreador possui um número de sequência e o servidor possui outro
+número de sequência, ou seja, cada parte possui um número de sequência. Se o rastreador enviar
+uma mensagem com o número de sequência 1, o servidor deverá gerar uma mensagem de ACK (id:
+6) com o mesmo número de sequência que o rastreador enviou (1), o mesmo ocorre quando o
+servidor gera uma mensagem para o rastreador com o número de sequência 15, o rastreador irá
+enviar uma mensagem de ACK para o servidor com o número de sequência 15.
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+7
+
+Protocolo de Comunicação
+
+A tabela abaixo segue os tipos de equipamentos:
+
+Modelo do
+
+Produto
+
+rastreador
+RST-VT
+
+Rastreador RST-VT
+
+RST-DTMF
+
+Rastreador RST-DTMF
+
+RST-ABS
+
+Rastreador RST-ABSOLUT
+
+RST-VT-EVO
+
+Rastreador RST-VT EVO
+
+RST-VT-PLUS
+
+Rastreador RST-VT PLUS
+
+RST-VTv2
+
+Rastreador RST-VTv2
+
+RST-LCv2
+
+Rastreador RST-LCv2
+
+RST-MINI
+
+Rastreador RST-MINI
+
+RST-CARGA
+
+Rastreador RST-CARGA
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+8
+
+Protocolo de Comunicação
+
+3 COMUNICAÇÃO ENTRE O RASTREADOR E O SERVIDOR
+
+3.1 COMUNICAÇÃO DO RASTREADOR PARA O SERVIDOR
+Quando o rastreador envia uma mensagem para o servidor, o rastreador irá aguardar o
+recebimento do ACK da mensagem do servidor para só depois incrementar o seu número de
+sequência e enviar uma nova mensagem. O servidor deverá sempre responderá o ACK (ID: 6) ou
+NACK (ID: 21) com o número de sequência recebido e o número de série do equipamento. Caso o
+rastreador não receba o ACK ou NACK da mensagem enviada, o mesmo irá tentar enviar a
+mensagem novamente, só que aumentando o tempo de timeout de resposta do servidor. O limite
+máximo para o envio da mensagem para cada número de IP é de 5 tentativas para cada número IP.
+Após todas as tentativas, o rastreador automaticamente reinicia toda a comunicação GPRS.
+É imprescindível que o servidor responda a mensagem recebida com ACK ou NACK para o
+rastreador, pois se não houver uma resposta do servidor, o mesmo irá tentar enviar a mesma
+mensagem sempre. Porém a partir da versão de firmware V2.02, o rastreador vai desistir de enviar
+uma mensagem para o servidor após 20 tentativas (ou o valor configurado) de envio e nenhum
+recebimento de ACK ou NACK. Este valor de tentativas poderá ser configurado conforme
+necessidade do cliente.
+
+3.2 COMUNICAÇÃO DO SERVIDOR PARA O RASTREADOR
+Quando o servidor envia uma mensagem para o rastreador, o rastreador irá responder com
+uma mensagem de ACK (ID: 134) ou NACK (ID: 149) para o servidor. O rastreador irá responder
+todas as mensagens recebidas do servidor com o mesmo número de sequência que o servidor
+enviou. Sendo assim, o servidor terá o seu próprio número de sequência e o rastreador terá outro.
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+9
+
+Protocolo de Comunicação
+
+4 LED DE STATUS DO RASTREADOR
+O Rastreador RST-VT possui um led de status do seu funcionamento. A tabela abaixo mostra
+quais as suas informações:
+
+Número de
+piscadas
+
+Descrição
+
+1
+
+Modulo GPS com visada
+
+2
+
+Modulo GPS sem visada
+
+3
+
+Modulo GPS com defeito
+
+Número de
+piscadas
+
+Descrição
+
+1
+
+Comunicação ok
+
+2
+
+Problemas com a comunicação
+
+3
+
+Sem cobertura GPRS
+
+4
+
+Sinal GSM baixo
+
+5
+
+Sem SIMCARD conectado
+
+6
+
+Modulo GSM sendo iniciado
+
+7
+
+Modulo GSM com defeito
+
+8
+
+SIMCARD não registrado
+
+9
+
+SIMCARD com senha PIN
+
+10
+
+SIMCARD com senha PUK
+
+Para maiores detalhes de funcionamento do rastreador, consulte o manual de instalação e
+operação do rastreador.
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+10
+
+Protocolo de Comunicação
+
+5 DESCRIÇÃO DAS MENSAGENS DO RASTREADOR
+5.1 MENSAGEM ID: 1 – TRACKING
+Esta mensagem informa ao servidor a posição atual do veículo, ela é enviada a cada 60
+segundos para o servidor (tempo configurável) e quando ignição do veículo estiver ligada ou
+desligada (não em modo sleep). Para esta mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 1
+Permite dados adicionais: SIM
+
+nº
+
+Informação
+
+1
+
+Timestamp do evento
+
+Descrição
+Data e hora de quando o evento foi gerado
+(relógio interno do rastreador)
+Formato: DD-MM-AAAA HH:MM:SS
+Ex.: 15-05-2015 10:48:22
+Data e hora da última posição válida do
+GPS
+
+2
+
+Timestamp do GPS
+
+Formato: DD-MM-AAAA HH:MM:SS
+Ex.: 15-05-2015 10:48:22
+Latitude do GPS da última posição válida
+
+3
+
+Latitude do GPS
+
+Formato: em graus decimais
+Ex.: -23.495054
+Longitude do GPS da última posição válida
+
+4
+
+5
+
+6
+
+Longitude do GPS
+
+Velocidade atual do GPS
+
+Direção do GPS
+
+Formato: em graus decimais
+Ex.: -46.876480
+Velocidade do GPS da última posição
+válida
+(Km/h)
+Ex.: 1 Km/h
+Ângulo de direção do GPS da última
+posição válida – valor de 0 até 360 graus.
+Ex.: 125 graus
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+11
+
+Protocolo de Comunicação
+Altitude da antena de GPS (metros)
+7
+
+8
+
+9
+
+10
+
+Altitude do GPS
+
+Validade do GPS
+
+Número de satélites do GPS
+
+HDOP do GPS
+
+Ex.: 774 metros
+Indica a válida do GPS, sendo que valor:
+1 = posição válida
+0 = posição inválida.
+Ex.: 1 (GPS válido)
+Número de satélites da última posição
+válida.
+Ex.: 4 (número de satélites)
+Informação do HDOP do GPS da última
+posição válida.
+Ex.: 1
+Status dos sensores do rastreador (parte 1),
+valor em hexadecimal.
+Os sensores do rastreador em dois bits.
+00 = Desabilitado
+01 = Ativado (violado)
+10 = Desativado (restaurado)
+11 = Cortado ou erro
+
+11
+
+Status dos sensores do
+rastreador 1
+
+Status dos sensores 1 - MSB:
+Bit 0 - Status do sensor 1
+Bit 1 - Status do sensor 1
+Bit 2 - Status do sensor 2
+Bit 3 - Status do sensor 2
+Bit 4 - Status do sensor 3
+Bit 5 - Status do sensor 3
+Bit 6 - Status do sensor 4
+Bit 7 - Status do sensor 4
+Ex.: 0x00
+Status dos sensores do rastreador (parte 2),
+valor em hexadecimal.
+Status dos sensores 2 - LSB:
+
+12
+
+Status dos sensores do
+rastreador 2
+
+Bit 0 - Status do sensor 5
+Bit 1 - Status do sensor 5
+Bit 2 - Status do sensor 6
+Bit 3 - Status do sensor 6
+Bit 4 - Status da bateria externa
+(1 = conectada, 0 = desconectada)
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+12
+
+Protocolo de Comunicação
+Bit 5 - Status da bateria interna
+(1 = conectada, 0 = desconectada)
+Bit 6 - Status da antena GPS externa
+(1 = conectada, 0 = desconectada)
+Bit 7 - Status da ignição
+(0 = ignição desligada e 1 = ignição ligada)
+Ex.: 0xF0
+Status dos sensores do teclado, valor em
+hexadecimal.
+Os sensores do rastreador em dois bits.
+00 = Desabilitado
+01 = Ativado (violado)
+10 = Desativado (restaurado)
+11 = Cortado ou erro
+13
+
+Status dos sensores do teclado
+
+Bit 0 - Status do sensor 1 do teclado
+Bit 1 - Status do sensor 1 do teclado
+Bit 2 - Status do sensor 2 do teclado
+Bit 3 - Status do sensor 2 do teclado
+Bit 4 - Status do sensor 3 do teclado
+Bit 5 - Status do sensor 3 do teclado
+Bit 6 - Status do sensor 4 do teclado
+Bit 7 - Status do sensor 4 do teclado
+Ex.: 0x00
+Status dos atuadores 1 do rastreador, valor
+em hexadecimal.
+Bit 0 – Se valor for igual a 1, indica que o
+rastreador está bloqueado
+Bit 1 – Se valor for igual a 1, indica que o
+rastreador esta desbloqueado
+
+14
+
+Status dos atuadores 1
+
+Bit 2 – Se valor for igual a 1, indica que a
+sirene está ligada
+Bit 3 – Se valor for igual a 1, indica que a
+sirene está desligada
+Bit 4 – Se valor for igual a 1, indica que a
+trava está fechada (quando trava habilitada)
+Bit 5 – Se valor for igual a 1 indica que a
+trava está aberta (quando trava habilitada)
+Bit 6 – Se valor for igual a 1, indica que a
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+13
+
+Protocolo de Comunicação
+trava de quinta roda está aberta (quando
+quinta roda habilitada)
+Bit 7 – Se valor for igual a 1, indica que a
+trava de quinta roda está fechada (quando
+quinta roda habilitada)
+Ex.: 0x1A
+Status dos atuadores 2 do rastreador, valor
+em hexadecimal.
+Bit 0 - Se valor for igual a 1, indica que o
+pisca alerta está ligado
+Bit 1 – Se valor for igual a 1, indica que o
+pisca alerta está desligado
+15
+
+16
+
+17
+
+18
+
+Status dos atuadores 2
+
+Tensão da bateria externa
+
+Tensão da bateria interna
+
+Hodômetro do GPS
+
+Bit 2 - Para uso futuro (sempre 0)
+Bit 3 - Para uso futuro (sempre 0)
+Bit 4 - Para uso futuro (sempre 0)
+Bit 5 - Para uso futuro (sempre 0)
+Bit 6 - Para uso futuro (sempre 0)
+Bit 7 - Para uso futuro (sempre 0)
+Ex.: 0x02
+Tensão da bateria externa, veículo, em
+volts.
+Ex.: 12.38V
+Tensão da bateria interna, rastreador, em
+volts.
+Ex.: 4.08V
+Hodômetro do veículo pelo GPS, valor em
+quilômetros
+Ex.: 3 (km)
+Este valor é compreendido entre 0 (sinal
+fraco) até 31 (sinal forte).
+
+19
+
+Nível de sinal do modem GSM
+
+É possível converter o sinal para barras
+iguais aos dos celulares, para isso,
+converter o valor conforme abaixo:
+Valor de 26 a 31 = 5 barras
+Valor de 20 a 25 = 4 barras
+Valor de 14 a 19 = 3 barras
+Valor de 8 a 13 = 2 barras
+Valor de 2 a 7 = 1 barra
+Valor de 0 a 1 = 0 barras (sinal muito fraco
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+14
+
+Protocolo de Comunicação
+ou sem sinal)
+Ex.: 29
+Para o sensor de temperatura, se o valor
+igual a 0xFF indica sensor desabilitado.
+Valor em hexadecimal.
+Se o valor diferente de 0xFF, então o
+sensor de temperatura está habilitado,
+neste caso seguir:
+
+20
+
+Sensor de temperatura
+
+Bit 0 - Valor temperatura - LSB
+Bit 1 - Valor temperatura
+Bit 2 - Valor temperatura
+Bit 3 - Valor temperatura
+Bit 4 - Valor temperatura
+Bit 5 - Valor temperatura
+Bit 6 - Valor temperatura - MSB
+Bit 7 - Sinal - se valor igual a 1 indica valor
+negativo, se valor igual a 0 indica valor
+positivo
+Se o valor for igual a 0xFE, indica que o
+sensor de temperatura está com defeito de
+hardware ou não foi instalado nenhum
+sensor de temperatura.
+Ex.: 0xFE
+Status dos lacres dos sensores do
+rastreador e teclado, valor em hexadecimal.
+MSB:
+Se valor 1 = lacrado ou 0 = deslacrado
+
+21
+
+Lacres dos sensores
+
+Bit 0 – Sensor 3 do teclado
+Bit 1 – Sensor 4 do teclado
+Bit 2 – Para uso futuro, sempre 0
+Bit 3 – Para uso futuro, sempre 0
+Bit 4 – Para uso futuro, sempre 0
+Bit 5 – Para uso futuro, sempre 0
+Bit 6 – Para uso futuro, sempre 0
+Bit 7 – Para uso futuro, sempre 0
+LSB:
+Se valor 1 = lacrado ou 0 = deslacrado
+Bit 0 – Sensor 1 do rastreador
+Bit 1 – Sensor 2 do rastreador
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+15
+
+Protocolo de Comunicação
+Bit 2 – Sensor 3 do rastreador
+Bit 3 – Sensor 4 do rastreador
+Bit 4 – Sensor 5 do rastreador
+Bit 5 – Sensor 6 do rastreador
+Bit 6 – Sensor 1 do teclado
+Bit 7 – Sensor 2 do teclado
+Ex.: 0x0000
+Status 1 do rastreador, valor em
+hexadecimal.
+Bit 7 – Em modo viagem (somente quando
+teclado conectado)
+(1=modo viagem ou 0=modo parado)
+Bit 6 – Modo antifurto ativado
+(1=ativado ou 0=desativado)
+Bit 5 – Acelerômetro habilitado
+(1=habilitado ou 0= desabilitado)
+
+22
+
+Status 1 do rastreador
+
+Bit 4 – Movimento acelerômetro (desde que
+o acelerômetro esteja habilitado)
+(1=em movimento ou 0=parado)
+Bits 3 a 0 – Status lógico do rastreador:
+Valor 1 = em modo ignição ligada
+Valor 2 = em modo ignição desligada
+Valor 3 = em modo sleep
+Valor 4 = em modo bateria interna
+Valor 5 = em modo deep sleep (pósprodução)
+Valor 6 = em modo violação
+Valor 7 = em modo super sleep (móvel)
+Ex.: 0x01
+Status 2 do rastreador, valor em
+hexadecimal
+
+23
+
+Status 2 do rastreador
+
+Bit 7 e 6 – Status do carregador da bateria
+interna
+00 = sem informação do carregador
+01 = em processo de carregamento
+10 = carga suspensa
+11 = carga finalizada
+Bit 5 – Jammer ativo e detectado
+(1=ativado ou 0=desativado)
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+16
+
+Protocolo de Comunicação
+
+Bit 4 – Atualização remota do firmware
+(1=ativado ou 0=desativado)
+Bit 3 – Sensor de chuva (desde que esteja
+devidamente configurado)
+(1=ativado ou 0=desativado)
+Bit 2, 1 e 0 – Status da betoneira (desde
+que esteja devidamente configurado)
+000 = Não habilitada
+001 = Betoneira parada
+010 = Betoneira girando lado esquerdo
+(descarregando)
+011 = Betoneira girando lado direito
+(batendo o cimento)
+100 = Betoneira em carregamento do
+cimento
+111 = Estado inválido
+Ex.: 0xC0
+Formato da mensagem de tracking
+
+Exemplo:
+
+RST;A;RST-LC;V4.14;014030001;205;1;08-09-2015 19:20:55;08-09-2015 19:20:56;-23.494749;46.876537;0;327;746;1;7;0;02;F0;00;09;02;10.87;4.14;27;30;16;0000;01;C7;1C900020;E17359=22;0;
+0;0;0;0;4;668;FIM;
+
+Em azul: header
+Em vermelho: dados de tracking
+Em verde: dados adicionais
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+17
+
+Protocolo de Comunicação
+
+5.1.1 INFORMAÇÕES ADICIONAIS
+O rastreador pode adicionar mais informações nas mensagens de tracking (ID: 1) e tracking em
+sleep (ID: 2).
+Estas informações são:
+a. Informações dos sensores de temperatura instalados
+b. Informação do sensor de hodômetro
+c. Informação do sensor de combustível
+d. Informação do sensor de RPM
+e. Informação do metro percorrido parcial calculado através do GPS
+f.
+
+Informação das ERB’s do modem GSM
+
+g. Informação do ID de carreta
+h. Informação da betoneira
+i.
+
+Informação do sensor de combustível analógico
+
+j.
+
+Informação dos sensores analógicos*
+
+k. Informação do sensor maquina
+l.
+
+Informação do horímetro pelo RPM
+
+m. Informação do sensor de combustível da Omnicomm
+n. Informação do sensor de umidade
+o. Informação do sensor analógico 5
+p. Informação do ângulo atual do acelerômetro
+q. Informação dos dados brutos do sensor de combustível da Omnicomm
+r.
+
+Informação dos valores máximos de vibração do acelerômetro
+
+s. Informação do último id de motorista reconhecido
+t.
+
+Informação da consulta LBS do modem (não disponível para todos os modelos)
+
+u. Informação do sensor de pressão externo
+v. Informação dos metros para o hodômetro do veículo pelo GPS
+w. Informação dos metros para o hodômetro do veículo pelo sensor
+(*) – necessária alteração de hardware para o correto funcionamento
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+18
+
+Protocolo de Comunicação
+Ao final dos dados de tracking, o rastreador enviara mais 8 caracteres que é o campo de
+informações que indica quais dados adicionais estão disponiveis na mensagem.
+Exemplo:
+RST;L;RST-LC;V4.14;014030001;13;1;19-05-2015 11:52:39;19-05-2015 11:43:41;23.495209;-46.876293;0;15;748;0;7;1;00;90;00;1A;02;12.30;0.06;4;28;FE;0000;01;80;0CC00000;....
+Em azul: Header da mensagem, contendo o ID (1)
+Em vermelho: Informações de tracking
+Em verde: Bits dos dados adicionais (em hexadecimal)
+
+Nº
+
+Informação
+
+Descrição
+Bits de informações adicionais:
+Bit 31, 30, 29 e 28 – Informação adicional
+do sensor de temperatura
+Indica a quantidade de sensores de
+temperatura que estão instalados no
+rastreador.
+Valor de 0 até 10 sensores.
+Bit 27 e 26 – Informação adicional do
+sensor de pulsos 1, se valor igual a:
+
+1
+
+Bits das informações adicionais
+
+00 = Não habilitado
+01 = Habilitado como sensor de hodômetro
+10 = Habilitado como sensor de
+combustível
+11 = Habilitado como sensor de RPM
+Bit 25 e 24 – Informação adicional do
+sensor de pulsos 2, se valor igual a:
+00 = Não habilitado
+01 = Habilitado como sensor de hodômetro
+10 = Habilitado como sensor de
+combustível
+11 = Habilitado como sensor de RPM
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+19
+
+Protocolo de Comunicação
+
+Bit 23 – Metros percorridos parcial, se valor
+igual a 1 indica que há essa informação
+adicional
+Bit 22 – Dados das ERB’s do modem, se
+valor igual a 1 indica que há essa
+informação adicional
+Bit 21 – ID de carreta conectada, se valor
+igual a 1 indica que há essa informação
+adicional
+Bit 20 – Informação da betoneira, se valor
+igual a 1 indica que há essa informação
+adicional
+Bit 19 – Sensor combustível analógico, se
+valor igual a 1 indica que há essa
+informação adicional
+Bit 18 – Informações dos valores dos
+sensores analógicos, de 1 até 5. Se valor
+igual a 1 indica que há essa informação
+adicional
+Bit 17 – Sensor máquina, se valor igual a 1
+indica que há essa informação adicional
+Bit 16 – Horímetro do sensor do RPM, se
+valor igual a 1 indica que há essa
+informação adicional
+Bit 15 – Medidor de combustível da
+Omnicomm, se valor igual a 1 indica que há
+essa informação adicional
+Bit 14 – Sensor de umidade, se valor igual a
+1 indica que há essa informação adicional
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+20
+
+Protocolo de Comunicação
+
+Bit 13 – Sensor analógico 5, se valor igual a
+1 indica que há essa informação adicional
+Bit 12 – Valor do angulo atual do
+acelerômetro, se valor igual a 1 indica que
+há essa informação adicional
+Bit 11 – Dados brutos do medidor da
+Omnicomm, se valor igual a 1 indica que há
+essa informação adicional
+Bit 10 – Valores máximos de vibração do
+acelerômetro, se valor igual a 1 indica que
+há essa informação adicional
+Bit 9 – ID de motorista reconhecido, se
+valor igual a 1 indica que há essa
+informação adicional
+Bit 8 – Consulta latitude e longitude via lbs
+do modem, se valor igual a 1 indica que há
+essa informação adicional
+Bit 7 – Sensor de pressão externo, se valor
+igual a 1 indica que há essa informação
+adicional
+Bit 6 – Não usado, sempre 0
+Bit 5 – Valor dos metros para o hodômetro
+do veículo pelo GPS, se valor igual a 1
+indica que há essa informação adicional
+Bit 4 – Valor dos metros para o hodômetro
+do veículo pelo sensor (quando instalado e
+configurado), se valor igual a 1 indica que
+há essa informação adicional
+Bit 3 – Para uso futuro, sempre 0
+Bit 2 – Para uso futuro, sempre 0
+Bit 1 – Para uso futuro, sempre 0
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+21
+
+Protocolo de Comunicação
+Bit 0 – Para uso futuro, sempre 0
+Ex.: 0x0CC00000
+Em binario:
+00001100-11000000-00000000-00000000
+
+Exemplo:
+RST;L;RST-LC;V4.14;014030001;13;1;19-05-2015 11:52:39;19-05-2015 11:43:41;-23.495209;46.876293;0;15;748;0;7;1;00;90;00;1A;02;12.30;0.06;4;28;FE;0000;01;80;0CC00000;0;0;0;0;0;3
+1;19;198;16127;42748;724;31;37;177;16127;42749;724;31;41;169;16127;42747;724;31;27;162;
+16121;42619;724;31;53;161;16127;42727;724;31;9;156;16121;42709;724;0;0;0;0;0;0;FIM;
+
+Header:
+RST;L;RST-LC;V4.14;014030001;13;1;
+Dados de tracking:
+19-05-2015 11:52:39;19-05-2015 11:43:41;-23.495209;46.876293;0;15;748;0;7;1;00;90;00;1A;02;12.30;0.06;4;28;FE;0000;01;80;
+Bits das informações adicionais
+0CC00000;
+ em binário: 00001100-11000000-00000000-00000000
+Informações adicionais:
+0;0;0;0; - Dados do sensor de pulsos 1 (como sensor RPM)
+0; - Hodômetro parcial pelo GPS em metros
+31;19;198;16127;42748;724;31;37;177;16127;42749;724;31;41;169;16127;42747;724;31;27;162;161
+21;42619;724;31;53;161;16127;42727;724;31;9;156;16121;42709;724;0;0;0;0;0;0; - Dados das
+ERB’s do modem GSM
+Final da mensagem:
+FIM;
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+22
+
+Protocolo de Comunicação
+
+5.1.2 DETALHAMENTO DOS DADOS ADICIONAIS
+5.1.2.1 Sensor de Temperatura:
+
+Nº
+
+1
+
+Informação
+
+Número serial do sensor e valor
+da temperatura
+
+Descrição
+Número serial único do sensor de
+temperatura (em hexadecimal) e o valor
+atual da temperatura (valor em decimal de 55 até 128 graus)
+Ex.:
+7148DF=23;25DA12=-10;
+
+5.1.2.2 Sensor de pulso 1:
+
+
+Sensor do tipo hodômetro
+
+Nº
+
+Informação
+
+Descrição
+
+Velocidade atual
+
+Valor da velocidade atual do veículo medida
+pelo sensor do hodômetro, valor de 0 até
+255 Km/h
+
+2
+
+Velocidade média
+
+Valor da velocidade média calculada a
+partir da velocidade atual do sensor de
+hodômetro durante o intervalo de envio da
+mensagem de tracking, valor de 0 até 255
+Km/h.
+
+3
+
+Hodômetro
+
+Valor do hodômetro do veículo calculado
+pelo sensor de hodômetro, valor em
+quilômetros
+
+1
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+23
+
+Protocolo de Comunicação
+
+
+Sensor do tipo combustível
+
+Nº
+1
+
+
+
+Informação
+Valor atual dos litros
+
+Descrição
+É a quantidade de litros de diesel
+consumidos
+
+Sensor do tipo RPM
+
+Nº
+
+Informação
+
+Descrição
+
+Valor do RPM médio
+
+Valor do RPM médio medido durante o
+intervalo de envio da mensagem de
+tracking.
+
+Valor do RPM máximo
+
+Valor do RPM máximo medido durante o
+intervalo de envio da mensagem de
+tracking.
+
+3
+
+Valor do RPM mínimo
+
+Valor do RPM mínimo medido durante o
+intervalo de envio da mensagem de
+tracking.
+
+4
+
+Valor do RPM instantâneo
+
+Valor do RPM instantâneo, ou seja, o valor
+atual do sensor de RPM.
+
+1
+
+2
+
+5.1.2.3 Sensor de pulso 2:
+Formato igual ao sensor de pulso 1.
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+24
+
+Protocolo de Comunicação
+5.1.2.4 Hodômetro parcial pelo GPS em metros:
+Nº
+
+1
+
+Informação
+
+Hodômetro parcial pelo GPS
+
+Descrição
+Este valor indica a quantidade de metros
+que foram percorridos pelo veículo entre
+uma mensagem de tracking e outra
+mensagem (ID: 1). Este valor é sempre
+reiniciado após o envio da mensagem.
+
+5.1.2.5 Dados das ERB’s do modem GSM:
+
+Nº
+1
+2
+3
+4
+5
+6
+
+Informação
+Mobile network code
+Basestation identity code
+Received signal level
+Location area code
+Cell Identifier
+Mobile country code
+
+Descrição
+Número da operadora
+Número da estação rádio base
+Nível de sinal recebido
+Número da área
+Número da célula
+Número do país
+
+Exemplo de dados: (são enviados 7 conjuntos de dados, cada conjunto 6 informações de
+cada ERB e o primeiro conjunto é a informação da ERB em que o rastreador está registrado)
+31;19;198;16127;42748;724;31;37;177;16127;42749;724;31;41;169;16127;42747;724;31;27;16
+2;16121;42619;724;31;53;161;16127;42727;724;31;9;156;16121;42709;724;0;0;0;0;0;0;
+5.1.2.6 Informações do ID de carreta:
+
+Nº
+1
+
+Informação
+ID de carreta
+
+Descrição
+É o número do ID de carreta que está
+conectado ao rastreador pelo barramento
+One-Wire (valor em hexadecimal)
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+25
+
+Protocolo de Comunicação
+5.1.2.7 Informações da betoneira:
+
+Nº
+
+Informação
+
+Descrição
+Se valor igual a:
+
+1
+
+Informação da betoneira
+
+1 = Betoneira dentro do alvo com nota fiscal
+2 = Betoneira dentro do alvo sem nota fiscal
+3 = Betoneira fora do alvo com nota fiscal
+4 = Betoneira fora do alvo sem nota fiscal
+5 = Betoneira dentro do alvo volátil (cliente)
+e parada
+6 = Betoneira dentro do alvo volátil (cliente)
+e girando
+7 = Betoneira dentro do alvo volátil (cliente)
+e descarregando
+8 = Betoneira fora do alvo volátil (cliente)
+9 = Betoneira dentro do alvo de
+abastecimento
+10 = Betoneira descarregamento não
+autorizado
+Qualquer valor diferente será inválido.
+
+5.1.2.8 Informações do sensor de combustível analógico:
+
+Nº
+
+Informação
+
+Descrição
+
+1
+
+Valor do nível de litros do tanque
+
+Valor em porcentagem, de 0 até 100%.
+
+2
+
+Valor do sensor analógico
+
+Valor em tensão da entrada do sensor
+analógico.
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+26
+
+Protocolo de Comunicação
+5.1.2.9 Informação dos sensores analógicos
+
+Nº
+
+Informação
+
+Descrição
+Valores em volts, exemplo:
+
+Valores das tensões das
+entradas analógicas *.
+1
+
+(*) – necessária alteração de
+hardware para o correto
+funcionamento
+
+“10.05:2.25:3.25:15.78:22.69;
+Valores separados por ‘:’ (dois pontos) e
+finalizados com ‘;’ (ponto e vírgula).
+Sendo que o primeiro valor é referente ao
+sensor 1, o segundo ao sensor 2, e assim
+por diante.
+
+5.1.2.10 Informações do sensor maquina:
+
+Nº
+
+Informação
+
+Descrição
+Se valor igual a:
+
+1
+
+Status do sensor maquina
+
+0 = status inválido
+1 = sensor em nível zero
+2 = sensor em nível um
+3 = sensor pulsante
+
+5.1.2.11 Informações do horímetro pelo RPM:
+
+Nº
+
+Informação
+
+1
+
+Valor atual do horímetro
+
+Descrição
+Valor total do horímetro do sensor de RPM,
+em segundos.
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+27
+
+Protocolo de Comunicação
+5.1.2.12 Informações do sensor de combustível da Omnicomm:
+
+Nº
+
+1
+
+Informação
+
+Valor do nível de litros do tanque
+
+Descrição
+Valor do nível do tanque em litros. Esse
+valor é calculado automaticamente pelo
+rastreador, não sendo necessário fazer
+nenhum cálculo no sistema.
+Para que o cálculo seja feito de forma
+correta, o rastreador deverá estar
+devidamente configurado.
+
+5.1.2.13 Informações do sensor de umidade:
+
+Nº
+
+Informação
+
+Descrição
+Valor da umidade medida pelo sensor
+DS1923 da Maxim, link:
+
+1
+
+Valor da umidade
+
+http://www.maximintegrated.com/en/product
+s/comms/ibutton/DS1923.html
+Valor da umidade de 0 até 100% RH.
+
+5.1.2.14 Informações do sensor analógico 5:
+
+Nº
+1
+
+Informação
+Valor da tensão do sensor
+
+Descrição
+Valor em tensão da entrada do sensor
+analógico.
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+28
+
+Protocolo de Comunicação
+5.1.2.15 Informações do ângulo atual do acelerômetro:
+
+Nº
+
+Informação
+
+Descrição
+
+1
+
+Valor atual do ângulo do eixo X
+
+Valor do ângulo do eixo X do acelerômetro,
+em graus, de 0 até 359.
+
+2
+
+Valor atual do ângulo do eixo Y
+
+Valor do ângulo do eixo Y do acelerômetro,
+em graus, de 0 até 359.
+
+3
+
+Valor atual do ângulo do eixo Z
+
+Valor do ângulo do eixo Z do acelerômetro,
+em graus, de 0 até 359.
+
+5.1.2.16 Informações dos dados brutos do sensor de combustível da Omnicomm:
+
+Nº
+
+Informação
+
+Descrição
+
+1
+
+Valor do ADC do medidor
+
+Nível relativo LVL
+
+2
+
+Valor da temperatura do medidor
+
+Temperatura em graus Celsius
+
+5.1.2.17 Informações dos valores máximos de vibração do acelerômetro:
+
+Nº
+
+Informação
+
+1
+
+Valor máximo de vibração
+positiva do eixo X
+
+2
+
+Valor máximo de vibração
+negativa do eixo X
+
+Descrição
+Valor em G para a vibração positiva
+máxima do eixo X
+Valor em G para a vibração negativa
+máxima do eixo X
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+29
+
+Protocolo de Comunicação
+
+3
+
+Valor máximo de vibração
+positiva do eixo Y
+
+Valor em G para a vibração positiva
+máxima do eixo Y
+
+4
+
+Valor máximo de vibração
+negativa do eixo Y
+
+Valor em G para a vibração negativa
+máxima do eixo Y
+
+5
+
+Valor máximo de vibração
+positiva do eixo Z
+
+Valor em G para a vibração positiva
+máxima do eixo Z
+
+6
+
+Valor máximo de vibração
+negativa do eixo Z
+
+Valor em G para a vibração negativa
+máxima do eixo Z
+
+5.1.2.18 Informação do último id de motorista reconhecido
+
+Nº
+1
+
+Informação
+ID de motorista
+
+Descrição
+É o número do último ID de motorista que
+foi lido e reconhecido pelo rastreador. Valor
+em hexadecimal.
+
+5.1.2.19 Informação da consulta lbs do modem
+
+Nº
+
+Informação
+
+Descrição
+Latitude do LBS
+
+1
+
+Latitude
+
+2
+
+Longitude
+
+Formato: em graus decimais
+Ex.: -23.495054
+Longitude do LBS
+Formato: em graus decimais
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+30
+
+Protocolo de Comunicação
+Ex.: -46.876480
+
+5.1.2.20 Informação do sensor de pressão externo
+
+Nº
+
+Informação
+
+Descrição
+
+1
+
+Valor atual da pressão
+
+Valor lido do sensor de pressão externa
+
+2
+
+Valor atual da temperatura
+
+Valor da temperatura do sensor de pressão
+
+5.1.2.21 Valor dos metros para o hodômetro do veículo pelo GPS
+
+Nº
+
+Informação
+
+Descrição
+É o valor calculado dos metros percorridos
+para compor com maior precisão o
+hodômetro do GPS.
+
+1
+
+Valor dos metros
+
+Deve ser adicionado a informação de
+hodômetro de GPS, ficando no formato:
+KKKK.MMM (Quilômetros.Metros)
+Valor de 0 até 999 metros.
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+31
+
+Protocolo de Comunicação
+5.1.2.22 Valor dos metros para o hodômetro do veículo pelo Sensor
+
+Nº
+
+Informação
+
+Descrição
+É o valor calculado dos metros percorridos
+para compor com maior precisão o
+hodômetro do sensor.
+
+1
+
+Valor dos metros
+
+Deve ser adicionado a informação de
+hodômetro do sensor, ficando no formato:
+KKKK.MMM (Quilômetros.Metros)
+Valor de 0 até 999 metros.
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+32
+
+Protocolo de Comunicação
+
+5.2 MENSAGEM ID: 2 – TRACKING EM SLEEP
+Esta mensagem informa ao servidor a posição atual do veículo, quando o rastreador estiver em
+modo sleep. O modo sleep do rastreador poderá ser em modelo simples ou progressivo. Para esta
+mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 2
+Permite dados adicionais: SIM
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1)
+
+Exemplo:
+RST;L;RST-LC;V4.14;014030001;240;2;08-09-2015 19:36:08;08-09-2015 19:36:09;23.494904;-46.876316;2;153;742;1;6;1;02;F0;00;09;02;10.91;4.14;27;20;16;0000;01;C7;FIM;
+
+5.3 MENSAGEM ID: 3 – IGNIÇÃO LIGADA
+Esta mensagem informa ao servidor quando a ignição do veículo foi ligada. É um evento que
+não tem temporização. Para esta mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 3
+Permite dados adicionais: Não
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1)
+
+Exemplo:
+RST;L;RST-LC;V4.14;014030001;240;3;08-09-2015 19:36:08;08-09-2015 19:36:09;23.494904;-46.876316;2;153;742;1;6;1;02;F0;00;09;02;10.91;4.14;27;20;16;0000;01;C7;FIM;
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+33
+
+Protocolo de Comunicação
+
+5.4 MENSAGEM ID: 4 – IGNIÇÃO DESLIGADA
+Esta mensagem informa ao servidor quando a ignição do veículo foi desligada. É um evento
+que não tem temporização. Para esta mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 4
+Permite dados adicionais: Não
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1)
+
+Exemplo:
+RST;L;RST-LC;V4.14;014030001;240;4;08-09-2015 19:36:08;08-09-2015 19:36:09;23.494904;-46.876316;2;153;742;1;6;1;02;F0;00;09;02;10.91;4.14;27;20;16;0000;01;C7;FIM;
+
+5.5 MENSAGEM ID: 5 – INÍCIO DO MODO SLEEP
+Esta mensagem informa ao servidor quando o rastreador vai entrar em modo sleep, baixo
+consumo de energia. Após essa mensagem o rastreador mantém a conexão GPRS ativada por 30
+segundos, para o recebimento de algum comando do servidor. Para esta mensagem o servidor
+deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 5
+Permite dados adicionais: Não
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1)
+
+Exemplo:
+RST;L;RST-LC;V4.14;014030001;240;5;08-09-2015 19:36:08;08-09-2015 19:36:09;23.494904;-46.876316;2;153;742;1;6;1;02;F0;00;09;02;10.91;4.14;27;20;16;0000;01;C7;FIM;
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+34
+
+Protocolo de Comunicação
+
+5.6 MENSAGEM ID: 6 – ACK DO SERVIDOR PARA O RASTREADOR
+Esta mensagem é gerada somente pelo servidor para o rastreador, ela indica ao rastreador que
+a mensagem enviada por ele está correta. Deverá conter as mesmas informações enviadas no
+header pelo rastreador, ou seja, número de sequência, número serial, versão de hardware e versão
+de firmware.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 6
+Esta mensagem não possui payload, somente header
+
+Exemplo:
+RST;A;RST-LC;V4.14;014030001;12;6;FIM;
+Observação: O ack deve ser sem do tipo atual, ‘A’. Nunca de log, ‘L’.
+
+5.7 MENSAGEM ID: 7 – RESET DO RASTREADOR
+Esta mensagem informa ao servidor quando houve um reset do rastreador. Para esta
+mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 7
+Permite dados adicionais: Não
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1) e após haverá
+as seguintes informações:
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+35
+
+Protocolo de Comunicação
+
+
+Indica a origem do reset:
+Valor em hexadecimal e cada bit indica:
+Bit
+
+
+
+Descrição
+
+7
+
+Reset por modo stop
+
+6
+
+Reset por travamento da CPU
+
+5
+
+Reset por perda de clock
+
+4
+
+Reset por POR/PDR
+
+3
+
+Reset por baixa tensão
+
+2
+
+Reset por software
+
+1
+
+Reset por watchdog
+
+0
+
+Reset do rastreador
+
+Indica a possível causa do reset:
+Valor
+
+Descrição
+
+0
+
+Causa indefinida
+
+1
+
+Causa perda de clock base
+
+2
+
+Causa travamento do firmware
+
+3
+
+Causa interrupção invalida
+
+4
+
+Causa instrução indefinida
+
+5
+
+Causa violação de memória
+
+6
+
+Causa comando do bootloader remoto
+
+7
+
+Causa por baixa tensão
+
+8
+
+Causa interrupção NMI
+
+9
+
+Causa interrupção de hard fault
+
+10
+
+Causa interrupção de memory fault
+
+11
+
+Causa interrupção de bus fault
+
+12
+
+Causa interrupção de usage fault
+
+13
+
+Causa interrupção de SVC
+
+14
+
+Causa interrupção de debug
+
+15
+
+Causa interrupção de pend sv
+
+16
+
+Causa falha no número serial
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+36
+
+Protocolo de Comunicação
+Exemplo:
+RST;A;RST-LC;V4.14;014030001;1;7;14-08-2015 10:34:33;14-08-2015 10:34:15;-23.495359;46.876259;2;102;738;0;5;1;00;B0;00;19;02;10.64;4.14;3;0;FE;0000;01;C0;03;6;FIM;
+
+5.8 MENSAGEM ID: 8 – SOLICITA TIMESTAMP
+Esta mensagem solicita ao servidor o valor do seu timestamp atual. Para esta mensagem o
+servidor não deve responder ACK ou NACK, deverá responder para o rastreador com a mensagem
+ID 133 e o valor do Timestamp atual do servidor (valor em decimal).
+Segue abaixo o formato da mensagem:
+ID da mensagem: 0x08
+Permite dados adicionais: Não
+Esta mensagem não possui payload, somente header e final
+
+Exemplo:
+RST;A;RST-LC;V4.14;014030001;242;8;FIM;
+
+5.9 MENSAGEM ID: 9 – EVENTO SENSOR
+Esta mensagem informa ao servidor um evento de violação ou restaure de algum sensor do
+rastreador ou do teclado. Para esta mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 9
+Permite dados adicionais: Não
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1) e após haverá
+as seguintes informações:
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+37
+
+Protocolo de Comunicação
+Tipo do sensor;
+Número do sensor;
+Tipo de evento (violação ou restaure);
+
+
+
+A tabela abaixo mostra os valores possíveis para o tipo do sensor:
+
+Valor
+
+Descrição
+
+1
+
+Habilitado
+
+2
+
+Botão de pânico *
+
+3
+
+Botão antifurto **
+
+4
+
+Painel
+
+5
+
+Teclado
+
+6
+
+Porta motorista
+
+7
+
+Porta carona
+
+8
+
+Carreta
+
+9
+
+Porta baú
+
+10
+
+Porta baú lateral
+
+11
+
+Quinta roda
+
+12
+
+Caixa falsa
+
+13
+
+Portas cabine
+
+14
+
+Velocidade alarme **
+
+15
+
+Bateria monitorada
+
+16
+
+Rastreador de carreta
+
+17
+
+Acoplamento móvel
+
+18
+
+Sensor configurável 1
+
+19
+
+Sensor configurável 2
+
+20
+
+Sensor configurável 3
+
+21
+
+Sensor configurável 4
+
+22
+
+Sensor configurável 5
+
+23
+
+Sensor configurável 6
+
+24
+
+Sensor configurável 7
+
+25
+
+Sensor configurável 8
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+38
+
+Protocolo de Comunicação
+26
+
+Ar condicionado
+
+27
+
+Plataforma
+
+28
+
+Betoneira mecânica lado direito **
+
+29
+
+Betoneira mecânica lado esquerdo **
+
+30
+
+Betoneira eletrônica lado direito **
+
+31
+
+Betoneira eletrônica lado esquerdo **
+
+32
+
+Sensor de chuva
+
+33
+
+Sensor de embreagem
+
+34
+
+Freio de estacionamento
+
+35
+
+Farol baixo
+
+36
+
+Farol alto
+
+37
+
+Lanterna
+
+38
+
+Sensor de chuva para o alerta de velocidade **
+
+39
+
+Sensor horímetro **
+
+40
+
+Sensor saturação filtro ar
+
+41
+
+Sensor saturação filtro hd
+
+42
+
+Sensor pressão óleo motor
+
+43
+
+Botão controle de diesel **
+
+44
+
+Botão entregue
+
+45
+
+Botão em transito
+
+46
+
+Botão parado
+
+47
+
+Botão aguardando cliente
+
+48
+
+Sensor catraca lado direito **
+
+49
+
+Sensor catraca lado esquerdo **
+
+50
+
+Sensor catraca luz **
+
+51
+
+Sensor base estabilizadora **
+
+52
+
+Sensor betoneira descarregando **
+
+53
+
+Sensor passageiro
+
+54
+
+Sensor modo avião **
+
+55
+
+Sensor tamper **
+
+56
+
+Sensor horímetro led 1 **
+
+57
+
+Sensor horímetro led 2 **
+
+58
+
+Sensor horímetro led 3 **
+
+59
+
+Sensor horímetro led 4 **
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+39
+
+Protocolo de Comunicação
+60
+
+Sensor betoneira único **
+
+61
+
+Sensor analógico ***
+
+62
+
+Sensor freio motor **
+
+* Para o tipo botão de pânico, é gerada outra mensagem especifica (ID: 20).
+** Para esses tipos de sensores, não é gerada este tipo de mensagem.
+*** Para esse tipo de sensor, não é gerada este tipo de mensagem e necessita de
+alteração de hardware para o correto funcionamento.
+
+
+
+A tabela abaixo mostra os valores possíveis para o número do sensor:
+
+Valor
+
+
+
+Descrição
+
+1
+
+Sensor 1 do rastreador
+
+2
+
+Sensor 2 do rastreador
+
+3
+
+Sensor 3 do rastreador
+
+4
+
+Sensor 4 do rastreador
+
+5
+
+Sensor 5 do rastreador
+
+6
+
+Sensor 6 do rastreador
+
+7
+
+Sensor 1 do teclado
+
+8
+
+Sensor 2 do teclado
+
+9
+
+Sensor 3 do teclado
+
+10
+
+Sensor 4 do teclado
+
+A tabela abaixo mostra os valores possíveis para o tipo de evento:
+
+Valor
+
+Descrição
+
+0
+
+Restaure do sensor
+
+1
+
+Violação do sensor
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+40
+
+Protocolo de Comunicação
+
+5.10 MENSAGEM ID: 11 – RESPOSTA PARAMETROS
+Esta mensagem é a resposta da solicitação feita pelo servidor em uma mensagem anterior
+para o rastreador (ID 136). Para esta mensagem o servidor não deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 11
+Permite dados adicionais: Não
+
+nº
+
+Informação
+
+1
+
+Tempo envio mensagem tracking
+
+2
+
+3
+
+Tempo início modo sleep
+
+Tempo envio mensagem tracking
+em sleep
+
+4
+
+Tempo aguarda GPS fix
+
+5
+
+Tempo envio mensagem GPS
+sem visada
+
+Descrição
+Tempo em segundos para envio da
+mensagem de tracking para o servidor –
+somente quando ignição ligada
+Tempo em segundos para início do modo
+sleep após a ignição for desligada
+Tempo em segundos de envio da
+mensagem de tracking em sleep para o
+servidor – esta configuração só é válida
+para o modo de sleep simples
+Tempo em segundos para aguardar o GPS
+fixar uma posição válida – esta
+configuração só é válida quando rastreador
+estiver em modo sleep ou super sleep
+Tempo em segundos para enviar a
+mensagem de “defeito de hardware” ao
+servidor informando GPS sem visada
+Operadora utilizada para o simcard 1
+Operadoras do Brasil:
+
+6
+
+ID da operadora utilizada (para o
+simcard 1)
+
+Valor 0 = Tim
+Valor 1 = Claro
+Valor 2 = Oi
+Valor 3 = Vivo
+Valor 4 = Amazônia Telecom
+Valor 5 = Br Telecom
+Valor 6 = Telemig
+Valor 7 = Sercomtel
+Valor 8 = Ctbc Celular
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+41
+
+Protocolo de Comunicação
+Operadoras da Argentina:
+Valor 9 = Claro Argentina
+Valor 10 = Movistar Argentina
+Valor 11 = Telecom Per
+Operadoras do Uruguai:
+Valor 12 = Claro Uruguai
+Valor 13 = Movistar Uruguai
+Valor 14 = Antel
+
+APN a ser utilizada para o simcard 1
+7
+
+APN a ser utilizada (simcard 1)
+
+8
+
+Número IP 1
+
+9
+
+Número Porta 1
+
+10
+
+Número IP 2
+
+11
+
+Número Porta 2
+
+12
+
+Número IP 3
+
+13
+
+Número Porta 3
+
+14
+
+Número IP 4
+
+15
+
+Número Porta 4
+
+16
+
+Quantidade mensagens log
+
+Valor 0 = utilizar APN padrão da operadora
+Valor 1 = utilizar APN configurável
+Número IP do servidor 1
+Número da porta do servidor 1
+Número IP do servidor 2
+Número da porta do servidor 2
+Número IP do servidor 3
+Número da porta do servidor 3
+Número IP do servidor 4
+Número da porta do servidor 4
+Quantidade total de mensagens que estão
+no log interno do rastreador
+
+Exemplo:
+
+RST;A;RST-LC;V4.14;014030001;8;11;60;240;3600;300;1800;1;0;179.213.64.228:6501;179.21
+3.64.228:6501;179.213.64.228:6501;179.213.64.228:6501;0;FIM;
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+42
+
+Protocolo de Comunicação
+
+5.11 MENSAGEM ID: 12 – RESPOSTA INFORMAÇÕES DO MODEM
+Esta mensagem é a resposta da solicitação feita pelo servidor em uma mensagem anterior
+para o rastreador (ID: 137). Para esta mensagem o servidor não deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 12
+Permite dados adicionais: Não
+
+Descrição
+
+nº
+
+Informação
+
+1
+
+Número serial modem
+
+Número serial único do modem GSM do
+rastreador – em ASCII
+
+2
+
+Número Simcard 1
+
+Número serial único do simcard 1 do
+rastreador – em ASCII
+
+Número Simcard 2
+
+Número serial único do simcard 2 do
+rastreador – em ASCII
+
+3
+
+Exemplo:
+RST;A;RST-LC;V4.14;014030001;39;12;863071018675808;8955311329919028120F;0000000
+0000000000000;FIM;
+
+5.12 MENSAGEM ID: 13 – RESPOSTA POSIÇÃO
+Esta mensagem é gerada pelo rastreador quando o servidor envia um comando de solicitação
+de posição (ID 0x8E). Para esta mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 13
+Permite dados adicionais: Não
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+43
+
+Protocolo de Comunicação
+
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1)
+
+5.13 MENSAGEM ID: 20 – EVENTO BOTÃO DE PANICO
+Esta mensagem informa ao servidor que o botão de pânico foi pressionado. Para esta
+mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 20
+Permite dados adicionais: Não
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1) e após haverá a
+informação de qual é o número do sensor.
+
+5.14 MENSAGEM ID: 21 – NACK DO SERVIDOR PARA O RASTREADOR
+Esta mensagem é gerada somente pelo servidor para o rastreador, ela indica ao rastreador que
+a mensagem enviada por ele não foi interpretada corretamente ou está errada ou o ID da mensagem
+é desconhecido. Deverá conter as mesmas informações enviadas no header pelo rastreador, ou seja,
+número de sequência, número serial, versão de hardware e versão de firmware.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 21
+Tamanho do payload: 0 bytes
+Esta mensagem não possui payload, somente header
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+44
+
+Protocolo de Comunicação
+
+5.15 MENSAGEM ID: 22 – EVENTO PERDA DA ANTENA GPS
+Esta mensagem informa ao servidor que a antena de GPS externa do rastreador foi removida.
+Para esta mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 22
+Permite dados adicionais: Não
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1)
+
+5.16 MENSAGEM ID: 23 – EVENTO CONEXÃO DA ANTENA GPS
+Esta mensagem informa ao servidor que a antena de GPS externa do rastreador foi conectada.
+Para esta mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 23
+Permite dados adicionais: Não
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1)
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+45
+
+Protocolo de Comunicação
+
+5.17 MENSAGEM ID: 24 – JAMMER DETECTADO
+Esta mensagem informa ao servidor que foi detectado a atuação do jammer ao rastreador.
+Para esta mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 24
+Permite dados adicionais: Não
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1)
+
+5.18 MENSAGEM ID: 25 – EVENTO REMOÇÃO DA BATERIA EXTERNA
+Esta mensagem informa ao servidor que a bateria do veículo foi removida. Para esta
+mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 25
+Permite dados adicionais: Não
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1)
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+46
+
+Protocolo de Comunicação
+
+5.19 MENSAGEM ID: 26 – EVENTO CONEXÃO DA BATERIA EXTERNA
+Esta mensagem informa ao servidor que a bateria do veículo foi conectada. Para esta
+mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 26
+Permite dados adicionais: Não
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1)
+
+5.20 MENSAGEM ID: 27 – EVENTO REMOÇÃO DA BATERIA INTERNA
+Esta mensagem informa ao servidor que a bateria interna do rastreador foi removida. Para esta
+mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 27
+Permite dados adicionais: Não
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1)
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+47
+
+Protocolo de Comunicação
+
+5.21 MENSAGEM ID: 28 – EVENTO CONEXÃO DA BATERIA INTERNA
+Esta mensagem informa ao servidor que a bateria interna do rastreador foi conectada. Para
+esta mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 28
+Permite dados adicionais: Não
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1)
+
+5.22 MENSAGEM ID: 29 – DADOS DA VIAGEM
+Esta mensagem envia para o servidor os dados da viagem do veículo. Esta mensagem é envia
+sempre que a ignição for desligada. Para esta mensagem o servidor deverá responder ACK ou
+NACK.
+Observação: Esta mensagem é gerada somente se a ignição do veículo permanecer ligada por
+mais de 2 minutos.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 29
+Permite dados adicionais: Não
+
+nº
+
+Informação
+
+Descrição
+Data e hora do equipamento – momento em
+que a ignição foi ligada
+
+1
+
+Timestamp do equipamento –
+ignição ligada
+
+2
+
+Timestamp do GPS - ignição
+ligada
+
+3
+
+Latitude do GPS - ignição ligada
+
+Latitude do GPS da última posição válida –
+momento em que a ignição foi ligada
+
+4
+
+Longitude do GPS - ignição
+
+Longitude do GPS da última posição válida
+
+Data e hora da última posição válida do
+GPS – momento em que a ignição foi ligada
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+48
+
+Protocolo de Comunicação
+ligada
+
+– momento em que a ignição foi ligada
+
+5
+
+Tempo ignição ligada
+
+Tempo total, em segundos, em que o
+rastreador ficou com a ignição ligada
+
+6
+
+Quantidade de metros
+percorridos
+
+Quantidade de metros percorridos medidos
+pelo GPS durante o período que o
+rastreador estava com a ignição ligada
+
+7
+
+Validade do GPS – ignição ligada
+
+Se valor igual a 0, posição inválida. Se valor
+igual a 1, posição válida.
+
+8
+
+Número de satélites do GPS ignição ligada
+
+Quantidade de satélites
+
+9
+
+Quantidade de leituras válidas do
+GPS
+
+10
+
+Quantidade de leituras inválidas
+do GPS
+
+11
+
+Quantidade de correções GPS
+efetuadas
+
+12
+
+Tempo inicial GPS inválido
+
+Quantidade total de leituras válidas do
+modulo GPS
+Quantidade total de leituras inválidas do
+modulo GPS
+Quantidade de correções efetuadas pelo
+firmware no cálculo de metros percorridos
+Tempo total em que o modulo de GPS ficou
+sem visada, em segundos
+Contador único da mensagem de
+estacionamento, este contador é
+incrementado a cada nova mensagem
+gerada
+
+13
+
+Contador único da mensagem
+
+14
+
+Velocidade média
+
+Velocidade média calculada durante toda a
+viagem (ignição ligada) (km/h)
+
+15
+
+Velocidade média faixa 1
+
+Velocidade média calculada durante toda a
+viagem (ignição ligada) para a faixa 1(km/h)
+
+16
+
+17
+
+18
+
+Velocidade média faixa 2
+
+Velocidade média faixa 3
+
+Quantidade de velocidades
+máximas
+
+Velocidade média calculada durante toda a
+viagem (ignição ligada) para a faixa 2
+(km/h)
+Velocidade média calculada durante toda a
+viagem (ignição ligada) para a faixa 3
+(km/h)
+Quantidade de velocidades máximas
+registradas durante o período da viagem
+(ignição ligada) – valor permitido de 0 até 5
+Este valor afeta a quantidade de
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+49
+
+Protocolo de Comunicação
+velocidades máximas inclusas na
+mensagem, ou seja, se o valor for zero, não
+haverá dados de velocidades máximas na
+mensagem. Se o valor for igual a um, só
+haverá um dado de velocidade máxima e
+assim por diante, até o limite de 5
+velocidades máximas.
+19
+
+Velocidade máxima 1
+
+20
+
+Latitude da velocidade máxima 1
+
+21
+
+Longitude da velocidade máxima
+1
+
+22
+
+Timestamp da velocidade
+máxima 1
+
+23
+
+Velocidade máxima 2
+
+24
+
+Latitude da velocidade máxima 2
+
+25
+
+Longitude da velocidade máxima
+2
+
+26
+
+Timestamp da velocidade
+máxima 2
+
+27
+
+Velocidade máxima 3
+
+28
+
+Latitude da velocidade máxima 3
+
+29
+
+Longitude da velocidade máxima
+3
+
+30
+
+Timestamp da velocidade
+máxima 3
+
+31
+
+Velocidade máxima 4
+
+32
+
+Latitude da velocidade máxima 4
+
+33
+
+Longitude da velocidade máxima
+4
+
+34
+
+Timestamp da velocidade
+máxima 4
+
+35
+
+Velocidade máxima 5
+
+Velocidade máxima 1 registrada pelo
+rastreador (km/h)
+Latitude do GPS da velocidade máxima 1
+Longitude do GPS da velocidade máxima 1
+Timestamp do GPS da velocidade máxima
+1
+Velocidade máxima 2 registrada pelo
+rastreador (km/h)
+Latitude do GPS da velocidade máxima 2
+Longitude do GPS da velocidade máxima 2
+Timestamp do GPS da velocidade máxima
+2
+Velocidade máxima 3 registrada pelo
+rastreador (km/h)
+Latitude do GPS da velocidade máxima 3
+Longitude do GPS da velocidade máxima 3
+Timestamp do GPS da velocidade máxima
+3
+Velocidade máxima 4 registrada pelo
+rastreador (km/h)
+Latitude do GPS da velocidade máxima 4
+Longitude do GPS da velocidade máxima 4
+Timestamp do GPS da velocidade máxima
+4
+Velocidade máxima 5 registrada pelo
+rastreador (km/h)
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+50
+
+Protocolo de Comunicação
+
+36
+
+Latitude da velocidade máxima 5
+
+37
+
+Longitude da velocidade máxima
+5
+
+38
+
+Timestamp da velocidade
+máxima 5
+
+39
+
+Timestamp do equipamento – ign
+desligada
+
+40
+
+Timestamp do GPS - ignição
+desligada
+
+41
+
+Latitude do GPS - ignição
+desligada
+
+42
+
+Longitude do GPS - ignição
+desligada
+
+43
+
+Validade do GPS – ignição
+desligada
+
+44
+
+Número de satélites do GPS –
+ignição desligada
+
+Latitude do GPS da velocidade máxima 5
+Longitude do GPS da velocidade máxima 5
+Timestamp do GPS da velocidade máxima
+5
+Data e hora do equipamento – momento em
+que a ignição foi desligada
+Data e hora da última posição válida do
+GPS – momento em que a ignição foi
+desligada
+Latitude do GPS da última posição válida –
+momento em que a ignição foi desligada
+Longitude do GPS da última posição válida
+– momento em que a ignição foi desligada
+Se valor igual a 0, posição inválida. Se valor
+igual a 1, posição válida.
+Quantidade de satélites
+Quantidade de ocorrências do excesso de
+velocidade do veículo
+
+45
+
+Quantidade de ocorrências do
+excesso de velocidade
+
+46
+
+Para uso futuro
+
+47
+
+Quantidade de ocorrências de
+aceleração brusca
+
+Quantidade de ocorrências de aceleração
+brusca do veículo, valor medido pelo
+acelerômetro interno do rastreador
+
+48
+
+Quantidade de ocorrências de
+freada brusca
+
+Quantidade de ocorrências de freada
+brusca do veículo, valor medido pelo
+acelerômetro interno do rastreador
+
+Para uso futuro – valor sempre zero
+
+Exemplo:
+RST;A;RST-LC;V4.14;014030001;38;29;21-05-2015 20:34:14;21-05-2015 20:34:14;23.495049;-46.876404;1116;0;1;9;1116;0;0;0;13;0;0;0;0;0;21-05-2015 20:52:50;21-05-2015
+20:52:50;-23.494831;-46.876369;1;9;0;0;0;0;FIM;
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+51
+
+Protocolo de Comunicação
+
+5.23 MENSAGEM ID: 30 – DADOS DO ESTACIONAMENTO
+Esta mensagem envia para o servidor os dados de estacionamento do veículo. Esta
+mensagem é envia sempre que a ignição for ligada. Para esta mensagem o servidor deverá
+responder ACK ou NACK.
+Observação: Esta mensagem é gerada somente se a ignição do veículo permanecer desligada
+por mais de 2 minutos.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 30
+Permite dados adicionais: Não
+
+nº
+
+Informação
+
+1
+
+Timestamp do equipamento –
+ignição desligada
+
+2
+
+Timestamp do GPS - ignição
+desligada
+
+3
+
+Latitude do GPS - ignição
+desligada
+
+4
+
+Longitude do GPS - ignição
+desligada
+
+5
+
+Tempo ignição desligada
+
+6
+
+Validade do GPS – ignição
+desligada
+
+7
+
+Número de satélites do GPS –
+ignição desligada
+
+8
+
+Contador único da mensagem
+
+9
+
+Timestamp do equipamento –
+ignição ligada
+
+Descrição
+Data e hora do equipamento – momento em
+que a ignição foi desligada
+Data e hora da última posição válida do
+GPS – momento em que a ignição foi
+desligada
+Latitude do GPS da última posição válida –
+momento em que a ignição foi desligada
+Longitude do GPS da última posição válida
+– momento em que a ignição foi desligada
+Tempo total, em segundos, em que o
+rastreador ficou com a ignição desligada
+Se valor igual a 0, posição inválida. Se valor
+igual a 1, posição válida.
+Quantidade de satélites
+Contador único da mensagem de
+estacionamento, este contador é
+incrementado a cada nova mensagem
+gerada
+Data e hora do equipamento – momento em
+que a ignição foi ligada
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+52
+
+Protocolo de Comunicação
+
+10
+
+Timestamp do GPS - ignição
+ligada
+
+11
+
+Latitude do GPS - ignição ligada
+
+12
+
+Longitude do GPS - ignição
+ligada
+
+Data e hora da última posição válida do
+GPS – momento em que a ignição foi ligada
+Latitude do GPS da última posição válida –
+momento em que a ignição foi ligada
+Longitude do GPS da última posição válida
+– momento em que a ignição foi ligada
+
+13
+
+Validade do GPS – ignição ligada
+
+Se valor igual a 0, posição inválida. Se valor
+igual a 1, posição válida.
+
+14
+
+Número de satélites do GPS –
+ignição ligada
+
+Quantidade de satélites
+
+Exemplo:
+RST;A;RST-LC;V4.14;014030001;45;30;21-05-2015 20:52:50;21-05-2015 20:52:50;23.494831;-46.876369;251;1;9;6;21-05-2015 20:57:01;21-05-2015 20:57:02;-23.494797;46.876438;1;9;FIM;
+
+5.24 MENSAGEM ID: 31 – DEFEITO DE HARDWARE
+Esta mensagem informa ao servidor quando há algum problema interno do rastreador. Para
+esta mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 31
+Permite dados adicionais: Não
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1) e após haverá a
+informação do tipo de defeito gerado.
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+53
+
+Protocolo de Comunicação
+
+A tabela abaixo mostra os valores possíveis para o tipo de defeito gerado.
+
+Valor
+
+Descrição
+
+1
+
+Defeito no modulo GPS
+
+2
+
+Modulo de GPS sem visada por mais de X
+tempo configurado
+
+3
+
+Falha ao gravar na memória flash externa
+
+4
+
+Falha ao gravar na área de log
+
+5
+
+Falha ao gravar o histograma de telemetria
+
+6
+
+Erro no Timestamp do GPS
+
+7
+
+Erro ao efetuar reset no modulo GPS
+
+5.25 MENSAGEM ID: 34 – ALVO EXECUTADO
+Esta mensagem informa ao servidor quando um alvo previamente cadastrado e habilitado foi
+executado corretamente. Para esta mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 34
+Permite dados adicionais: Não
+
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1) e após haverá
+as seguintes informações:
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+54
+
+Protocolo de Comunicação
+
+nº
+
+Descrição
+
+Informação
+
+1
+
+ID alvo
+
+2
+
+Latitude alvo
+
+3
+
+Longitude alvo
+
+4
+
+Regra do alvo
+
+5
+
+Tolerância alvo
+
+Número do ID do alvo cadastrado – 1 até
+16
+Latitude do alvo
+Longitude do alvo
+Regra do alvo, sendo que:
+Se 1 – Regra bloqueia veículo no alvo
+Se 2 – Regra desbloqueia veículo no alvo
+Tolerância em metros do alvo
+
+5.26 MENSAGEM ID: 36 – INÍCIO DO MODO SUPER SLEEP
+Esta mensagem informa ao servidor o início do modo super sleep do rastreador (função
+rastreador móvel). Para esta mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 36
+Permite dados adicionais: Não
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1)
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+55
+
+Protocolo de Comunicação
+
+5.27 MENSAGEM ID: 37 – TRACKING EM SUPER SLEEP
+Esta mensagem informa ao servidor a posição atual do veículo, quando o rastreador estiver em
+modo super sleep (função rastreador móvel). O modo sleep do rastreador poderá ser em modelo
+simples ou progressivo. Para esta mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 37
+Permite dados adicionais: Não
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1)
+
+5.28 MENSAGEM ID: 38 – BLOQUEIO PELO ANTIFURTO
+Esta mensagem informa ao servidor quando ocorreu um bloqueio do veículo pela regra de
+antifurto. Esta mensagem só é enviada somente quando a funcionalidade antifurto estiver habilitada.
+Para esta mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 38
+Permite dados adicionais: Não
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1)
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+56
+
+Protocolo de Comunicação
+
+5.29 MENSAGEM ID: 39 – DESBLOQUEIO PELO BOTÃO ANTIFURTO
+Esta mensagem informa ao servidor quando ocorreu um desbloqueio do veículo pela regra de
+antifurto. Esta mensagem só é enviada somente quando a funcionalidade antifurto estiver habilitada.
+Para esta mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 0x27
+Permite dados adicionais: Não
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1)
+
+5.30 MENSAGEM ID: 40 – VIOLAÇÃO DO ANTIFURTO
+Esta mensagem informa ao servidor quando ocorreu uma violação do antifurto, porém não
+houve o bloqueio do veículo. Esta mensagem só é enviada somente quando a funcionalidade
+antifurto estiver habilitada. Para esta mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 40
+Permite dados adicionais: Não
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1)
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+57
+
+Protocolo de Comunicação
+
+5.31 MENSAGEM ID: 41 – BLOQUEIO MANOBRISTA
+Esta mensagem informa ao servidor quando ocorreu um bloqueio do veículo pela regra do
+manobrista. Esta mensagem só é enviada somente quando a funcionalidade antifurto estiver
+habilitada. Para esta mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 41
+Permite dados adicionais: Não
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1)
+
+5.32 MENSAGEM ID: 42 – VIOLAÇÃO MANOBRISTA
+Esta mensagem informa ao servidor quando ocorreu uma violação do manobrista, porém não
+houve o bloqueio do veículo. Esta mensagem só é enviada somente quando a funcionalidade
+antifurto estiver habilitada. Para esta mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 42
+Permite dados adicionais: Não
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1)
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+58
+
+Protocolo de Comunicação
+
+5.33 MENSAGEM ID: 43 – EVENTO OPERADORA CONECTADA
+Esta mensagem é enviada automaticamente para o servidor somente quando o rastreador
+muda de operadora de telefonia celular. Esta funcionalidade só é realizada quando o rastreador
+possui 2 simcards instalados. Para esta mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 43
+Permite dados adicionais: Não
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1) e após haverá
+as seguintes informações:
+
+nº
+
+Descrição
+
+Informação
+
+Número da operadora utilizada no momento
+Operadoras do Brasil:
+
+1
+
+Index da operadora utilizada
+
+Valor 0 = Tim
+Valor 1 = Claro
+Valor 2 = Oi
+Valor 3 = Vivo
+Valor 4 = Amazônia Telecom
+Valor 5 = Br Telecom
+Valor 6 = Telemig
+Valor 7 = Sercomtel
+Valor 8 = Ctbc Celular
+Operadoras da Argentina:
+Valor 9 = Claro Argentina
+Valor 10 = Movistar Argentina
+Valor 11 = Telecom Per
+Operadoras do Uruguai:
+Valor 12 = Claro Uruguai
+Valor 13 = Movistar Uruguai
+Valor 14 = Antel
+
+2
+
+Tamanho do nome operadora
+
+Tamanho em bytes do nome da operadora
+de telefonia celular
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+59
+
+Protocolo de Comunicação
+
+3
+
+Nome da operadora
+
+Nome da operadora de telefonia celular em
+ASCII
+
+5.34 MENSAGEM ID: 44 – EVENTO DEFEITO SENSOR DE TEMPERATURA
+Esta mensagem informa ao servidor quando ocorreu um erro ao ler o sensor de temperatura
+externo. Para esta mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 44
+Permite dados adicionais: Não
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1)
+
+5.35 MENSAGEM ID: 45 – EVENTO MACRO
+Esta mensagem envia para o servidor a macro que o operador selecionou no teclado. Esta
+funcionalidade só é realizada quando o teclado estiver habilitado. Para esta mensagem o servidor
+deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 45
+Permite dados adicionais: Não
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1) e após haverá
+as seguintes informações:
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+60
+
+Protocolo de Comunicação
+nº
+1
+
+Informação
+Número macro
+
+Descrição
+Número da macro enviada – de 0 até 23
+Regra executada pelo rastreador da macro.
+Se o valor estiver em 1 significa regra
+ativada, se valor estiver em 0 significa regra
+desativada.
+Regras possíveis:
+
+2
+
+Regra macro
+
+Bit 0: Abre o baú e deslacra o mesmo
+Bit 1: Fecha o baú e lacra o mesmo
+Bit 2: Lacra a porta do motorista
+Bit 3: Deslacra a porta do motorista
+Bit 4: Lacra a porta do carona
+Bit 5: Deslacra a porta do carona
+Bit 6: Lacra a carreta
+Bit 7: Deslacra a carreta
+Bit 8: Faz o bloqueio do veículo
+Bit 9: Faz o desbloqueio do veículo
+Bit 10: Faz a ativação da sirene por 60
+segundos
+Bit 11: Solicita senha para enviar macro
+Bit 12: Ativa modo manobrista
+Demais bits, sempre zerados (não
+utilizados)
+
+3
+
+Tamanho texto macro
+
+4
+
+Texto macro
+
+Tamanho do texto da macro em bytes
+Texto da macro em ASCII
+
+5.36 MENSAGEM ID: 46 – EVENTO FORMULARIO
+Esta mensagem envia para o servidor o formulário que o operador selecionou no teclado. Esta
+funcionalidade só é realizada quando o teclado estiver habilitado. Para esta mensagem o servidor
+deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 46
+Permite dados adicionais: Não
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+61
+
+Protocolo de Comunicação
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1) e após haverá
+as seguintes informações:
+
+nº
+
+Informação
+
+Descrição
+Número do formulário enviado – de 24 até
+27
+Sendo que:
+
+1
+
+Número do formulário
+
+Número 24 significa formulário 1
+Número 25 significa formulário 2
+Número 26 significa formulário 3
+Número 27 significa formulário 4
+Regra executada pelo rastreador do
+formulário. Se o valor estiver em 1 significa
+regra ativada, se valor estiver em 0 significa
+regra desativada.
+Regras possíveis:
+
+2
+
+Regra formulário
+
+Bit 0: Abre o baú e deslacra o mesmo
+Bit 1: Fecha o baú e lacra o mesmo
+Bit 2: Lacra a porta do motorista
+Bit 3: Deslacra a porta do motorista
+Bit 4: Lacra a porta do carona
+Bit 5: Deslacra a porta do carona
+Bit 6: Lacra a carreta
+Bit 7: Deslacra a carreta
+Bit 8: Faz o bloqueio do veículo
+Bit 9: Faz o desbloqueio do veículo
+Bit 10: Faz a ativação da sirene por 60
+segundos
+Bit 11: Solicita senha para enviar macro
+Bit 12: Ativa modo manobrista
+Demais bits, sempre zerados (não
+utilizados)
+
+3
+
+Tamanho texto formulário
+
+4
+
+Texto formulário
+
+Tamanho do texto do formulário em bytes
+Texto do formulário em ASCII
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+62
+
+Protocolo de Comunicação
+
+5.37 MENSAGEM ID: 47 – EVENTO EMBARCADO
+Esta mensagem envia para o servidor o código do evento embarcado que foi gerado pelo
+rastreador e dependendo da mensagem, dados adicionais serão enviados no final da mensagem.
+Para esta mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 47
+Permite dados adicionais: Não
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1) e após haverá
+as seguintes informações:
+
+Valor
+
+Descrição
+
+Dados adicionais
+
+1
+
+Evento trava baú um aberto pelo teclado
+
+Não há dados
+
+2
+
+Evento trava baú um fechado pelo teclado
+
+Não há dados
+
+3
+
+Evento sirene ligada pelo teclado
+
+Não há dados
+
+4
+
+Evento sirene desligada pelo teclado
+
+Não há dados
+
+5
+
+Evento porta do motorista lacrada pelo teclado
+
+Não há dados
+
+6
+
+Evento porta do motorista deslacrada pelo teclado
+
+Não há dados
+
+7
+
+Evento porta do carona lacrada pelo teclado
+
+Não há dados
+
+8
+
+Evento porta do carona deslacrada pelo teclado
+
+Não há dados
+
+9
+
+Evento porta do baú lacrada pelo teclado
+
+Não há dados
+
+10
+
+Evento porta do baú deslacrada pelo teclado
+
+Não há dados
+
+11
+
+Evento carreta lacrada pelo teclado
+
+Não há dados
+
+12
+
+Evento carreta deslacrada pelo teclado
+
+Não há dados
+
+13
+
+Evento sistema totalmente lacrado
+
+Não há dados
+
+14
+
+Evento sistema totalmente deslacrado
+
+Não há dados
+
+15
+
+Evento solicita abertura de baú
+
+Não há dados
+
+16
+
+Evento solicita fechamento de baú
+
+Não há dados
+
+17
+
+Evento solicita desbloqueio
+
+Não há dados
+
+18
+
+Evento solicita lacra porta motorista
+
+Não há dados
+
+19
+
+Evento solicita deslacra porta motorista
+
+Não há dados
+
+20
+
+Evento solicita lacra porta carona
+
+Não há dados
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+63
+
+Protocolo de Comunicação
+21
+
+Evento solicita deslacra porta carona
+
+Não há dados
+
+22
+
+Evento solicita lacra porta baú
+
+Não há dados
+
+23
+
+Evento solicita deslacra porta baú
+
+Não há dados
+
+24
+
+Evento solicita lacra carreta
+
+Não há dados
+
+25
+
+Evento solicita deslacra carreta
+
+Não há dados
+
+26
+
+Evento violação botão pânico
+
+Não há dados
+
+27
+
+Evento violação lacre porta motorista
+
+Não há dados
+
+28
+
+Evento violação lacre porta carona
+
+Não há dados
+
+29
+
+Evento violação lacre porta baú fundo
+
+Não há dados
+
+30
+
+Evento violação lacre porta baú lateral
+
+Não há dados
+
+31
+
+Evento violação do painel
+
+Não há dados
+
+32
+
+Evento violação do teclado
+
+Não há dados
+
+33
+
+Evento violação da carreta
+
+Não há dados
+
+34
+
+Evento senha de coação no teclado
+
+Não há dados
+
+35
+
+Evento senha geral no teclado
+
+Não há dados
+
+36
+
+Evento sistema em modo liberado
+
+Não há dados
+
+37
+
+Evento sistema em modo protegido
+
+Não há dados
+
+38
+
+Evento solicita bloqueio
+
+Não há dados
+
+39
+
+Evento sirene ligada um minuto
+
+Não há dados
+
+40
+
+Evento partida suspeita
+
+Não há dados
+
+41
+
+Evento solicita desbloqueio motorista
+
+Não há dados
+
+42
+
+Evento veículo bloqueado teclado motorista
+
+Não há dados
+
+43
+
+Evento veículo desbloqueado teclado motorista
+
+Não há dados
+
+44
+
+Evento veículo bloqueado violação regras
+
+Não há dados
+
+45
+
+Evento sirene ligada violação regras
+
+Não há dados
+
+46
+
+Evento pisca ligada violação regras
+
+Não há dados
+
+47
+
+Evento veículo bloqueado regra macro
+
+Não há dados
+
+48
+
+Evento veículo desbloqueado regra macro
+
+Não há dados
+
+49
+
+Evento veículo em modo viagem
+
+Não há dados
+
+50
+
+Evento veículo em modo parado
+
+Não há dados
+
+51
+
+Evento solicita modo viagem
+
+Não há dados
+
+52
+
+Evento solicita modo parado
+
+Não há dados
+
+53
+
+Evento veículo bloqueado manobra
+
+Não há dados
+
+54
+
+Evento veículo desbloqueado manobra
+
+Não há dados
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+64
+
+Protocolo de Comunicação
+55
+
+Evento veículo movimento suspeito
+
+Não há dados
+
+56
+
+Evento veículo bloqueado pela central
+
+Não há dados
+
+57
+
+Evento veículo desbloqueado pela central
+
+Não há dados
+
+58
+
+Evento veículo bloqueado silencioso pela central
+
+Não há dados
+
+59
+
+Evento veículo corte antena GPS e bateria removida
+
+Não há dados
+
+60
+
+Evento veículo desbloqueado movimento suspeito
+
+Não há dados
+
+61
+
+Evento betoneira girando LD mecânico
+
+Não há dados
+
+62
+
+Evento betoneira girando LE mecânico
+
+Não há dados
+
+63
+
+Evento betoneira parada mecânico
+
+Não há dados
+
+64
+
+Evento betoneira girando LD eletrônico
+
+Não há dados
+
+65
+
+Evento betoneira girando LE eletrônico
+
+Não há dados
+
+66
+
+Evento betoneira parada eletrônico
+
+Não há dados
+
+67
+
+- Número do ID do motorista atual
+(em hexadecimal)
+
+Evento alerta velocidade sem chuva
+
+Ex.:
+“010203040506;”
+- Número do ID do motorista atual
+(em hexadecimal)
+
+68
+
+Evento alerta velocidade com chuva
+
+Ex.:
+“010203040506;”
+- Número do ID do motorista atual
+(em hexadecimal)
+
+69
+
+Evento alerta velocidade máxima sem chuva
+
+Ex.:
+“010203040506;”
+- Número do ID do motorista atual
+(em hexadecimal)
+
+70
+
+Evento alerta velocidade máxima com chuva
+
+Ex.:
+“010203040506;”
+- Número do ID do motorista atual
+(em hexadecimal)
+
+71
+
+Evento id não cadastrado
+
+Ex.:
+“010203040506;”
+
+72
+
+- Contagem do tempo em
+velocidade máxima (em
+segundos);
+
+Evento tempo em velocidade máxima alerta
+
+- Número do ID do motorista atual
+(em hexadecimal);
+- Contagem dos metros percorrido
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+65
+
+Protocolo de Comunicação
+em velocidade máxima;
+Ex.: “100;010203040506;250;”
+- Tempo da contagem do
+horímetro (em segundos)
+
+73
+
+- Identificador da mensagem atual,
+se 0 = fim da contagem, se 1 =
+início da contagem e se 2 =
+contagem parcial (a cada 3600
+segundos completados)
+
+Evento dados sensor horímetro um
+
+Ex.:
+“0;0;”
+“1;241;”
+“2;3600;”
+- Tempo da contagem do
+horímetro (em segundos)
+
+74
+
+- Identificador da mensagem atual,
+se 0 = fim da contagem, se 1 =
+início da contagem e se 2 =
+contagem parcial (a cada 3600
+segundos completados)
+
+Evento dados sensor horímetro dois
+
+Ex.:
+“0;0;”
+“1;241;”
+“2;3600;”
+- Tempo da contagem do
+horímetro (em segundos)
+
+75
+
+- Identificador da mensagem atual,
+se 0 = fim da contagem, se 1 =
+início da contagem e se 2 =
+contagem parcial (a cada 3600
+segundos completados)
+
+Evento dados sensor horímetro três
+
+Ex.:
+“0;0;”
+“1;241;”
+“2;3600;”
+- Tempo da contagem do
+horímetro (em segundos)
+76
+
+- Identificador da mensagem atual,
+se 0 = fim da contagem, se 1 =
+início da contagem e se 2 =
+contagem parcial (a cada 3600
+
+Evento dados sensor horímetro quatro
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+66
+
+Protocolo de Comunicação
+segundos completados)
+Ex.:
+“0;0;”
+“1;241;”
+“2;3600;”
+- Tempo da contagem do
+horímetro (em segundos)
+
+77
+
+- Identificador da mensagem atual,
+se 0 = fim da contagem, se 1 =
+início da contagem e se 2 =
+contagem parcial (a cada 3600
+segundos completados)
+
+Evento dados sensor horímetro cinco
+
+Ex.:
+“0;0;”
+“1;241;”
+“2;3600;”
+- Tempo da contagem do
+horímetro (em segundos)
+
+78
+
+- Identificador da mensagem atual,
+se 0 = fim da contagem, se 1 =
+início da contagem e se 2 =
+contagem parcial (a cada 3600
+segundos completados)
+
+Evento dados sensor horímetro seis
+
+Ex.:
+“0;0;”
+“1;241;”
+“2;3600;”
+- Tempo da contagem do
+horímetro (em segundos)
+
+79
+
+- Identificador da mensagem atual,
+se 0 = fim da contagem, se 1 =
+início da contagem e se 2 =
+contagem parcial (a cada 3600
+segundos completados)
+
+Evento dados sensor horímetro rpm
+
+Ex.:
+“0;0;”
+“1;241;”
+“2;3600;”
+80
+
+- Valor da configuração de
+debounce para detectar o excesso
+
+Evento alerta excesso sensor rpm
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+67
+
+Protocolo de Comunicação
+de RPM
+- Valor da configuração do limite
+do valor de RPM
+- Número do ID de motorista atual
+(em hexadecimal)
+- Tempo total em excesso de RPM
+(em segundos)
+- Valor máximo do RPM quando
+em excesso
+Ex.:
+“10;3000;010203040506;20;3500;”
+81
+
+Evento veículo bloqueado movimento suspeito
+
+Não há dados
+
+82
+
+Evento veículo desbloqueado movimento suspeito
+
+Não há dados
+
+83
+
+Evento veículo bloqueado alvo
+
+Não há dados
+
+84
+
+Evento veículo desbloqueado alvo
+
+Não há dados
+
+85
+
+Evento veículo bloqueado automático
+
+Não há dados
+
+86
+
+Evento veículo desbloqueado automático
+
+Não há dados
+
+87
+
+Evento veículo bloqueado serial
+
+Não há dados
+
+88
+
+Evento veículo desbloqueado serial
+
+Não há dados
+- Número do ID do motorista atual
+(em hexadecimal)
+
+89
+
+Evento veículo bloqueado id motorista
+
+Ex.:
+“010203040506;”
+- Número do ID do motorista atual
+(em hexadecimal)
+
+90
+
+Evento veículo desbloqueado id motorista
+
+Ex.:
+“010203040506;”
+
+91
+
+Evento veículo bloqueado mensagem SMS
+
+Não há dados
+
+92
+
+Evento veículo desbloqueado mensagem SMS
+
+Não há dados
+- Número do ID de temperatura
+que foi violado (em hexadecimal –
+últimos 3 bytes somente)
+
+93
+
+Evento alerta temperatura máxima
+
+- Valor da temperatura atual
+Ex.:
+“040506;10;”
+
+94
+
+- Número do ID de temperatura
+que foi violado (em hexadecimal –
+últimos 3 bytes somente)
+
+Evento alerta temperatura mínima
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+68
+
+Protocolo de Comunicação
+- Valor da temperatura atual
+Ex.:
+“040506;10;”
+- Número do ID de temperatura
+que foi violado (em hexadecimal –
+últimos 3 bytes somente)
+95
+
+Evento alerta temperatura restaure
+
+- Valor da temperatura atual
+Ex.:
+“040506;10;”
+
+96
+
+Evento sensor hodômetro calibrado
+
+Não há dados
+
+97
+
+Evento sensor hodômetro re-calibrado
+
+Não há dados
+- Tipo do evento:
+0 = inválido
+1 = girando lado direito
+2 = girando lado esquerdo
+3 = parada
+
+98
+
+Evento betoneira temporizadores
+
+4 = carregando
+- Tempo total em que a betoneira
+ficou ativada ou desativa (em
+segundos)
+Ex.:
+“1;120;”
+
+99
+
+Evento veículo bloqueado dentro cerca
+
+Não há dados
+
+100
+
+Evento veículo desbloqueado dentro cerca
+
+Não há dados
+
+101
+
+Evento veículo bloqueado fora cerca
+
+Não há dados
+
+102
+
+Evento veículo desbloqueado fora cerca
+
+Não há dados
+- Tipo da regra executada, se 0 =
+fora da cerca, se 1 = dentro da
+cerca
+
+103
+
+- Regra executada da cerca
+
+Evento alerta dentro cerca eletrônica
+
+- Número da cerca (de 0 até 63)
+Ex.:
+“1;1;0;”
+
+104
+
+- Tipo da regra executada, se 0 =
+fora da cerca, se 1 = dentro da
+cerca
+
+Evento alerta fora cerca eletrônica
+
+- Regra executada da cerca
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+69
+
+Protocolo de Comunicação
+- Número da cerca (de 0 até 63)
+Ex.:
+“1;1;0;”
+- Número do ID de carreta (em
+hexadecimal)
+105
+
+Evento id carreta conectado
+
+Ex.:
+“010203040506;”
+- Número do ID de carreta (em
+hexadecimal)
+
+106
+
+Evento id carreta desconectado
+
+Ex.:
+“010203040506;”
+
+107
+
+Evento trava baú dois aberto pelo teclado
+
+Não há dados
+
+108
+
+Evento trava baú dois fechado pelo teclado
+
+Não há dados
+
+109
+
+Evento trava baú três aberto pelo teclado
+
+Não há dados
+
+110
+
+Evento trava baú três fechado pelo teclado
+
+Não há dados
+
+111
+
+Evento trava baú um aberto pela central
+
+Não há dados
+
+112
+
+Evento trava baú um fechado pela central
+
+Não há dados
+
+113
+
+Evento trava baú dois aberto pela central
+
+Não há dados
+
+114
+
+Evento trava baú dois fechado pela central
+
+Não há dados
+
+115
+
+Evento trava baú três aberto pela central
+
+Não há dados
+
+116
+
+Evento trava baú três fechado pela central
+
+Não há dados
+
+117
+
+Evento veículo bloqueado sensor
+
+Não há dados
+
+118
+
+Evento dentro alvo betoneira
+
+Não há dados
+
+119
+
+Evento fora alvo betoneira
+
+Não há dados
+
+120
+
+Evento veículo bloqueado alvo volátil
+
+Não há dados
+
+121
+
+Evento veículo mensagem alvo volátil
+
+Não há dados
+
+122
+
+- Número do ponto do cliente
+cadastrado no rastreador (de 1 até
+50)
+
+Evento betoneira chegou cliente
+
+Ex.:
+“5;”
+123
+
+Evento betoneira saiu cliente
+
+Não há dados
+
+124
+
+Evento veículo bloqueado lacre betoneira
+
+Não há dados
+
+125
+
+Evento veículo mensagem lacre betoneira
+
+Não há dados
+
+126
+
+Evento apaga todos os ids motorista
+
+Não há dados
+
+127
+
+Evento apaga todos os ids carretas
+
+Não há dados
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+70
+
+Protocolo de Comunicação
+128
+
+Evento veículo bloqueado regra jammer
+
+Não há dados
+
+129
+
+Evento dentro ponto controle
+
+Não há dados
+
+130
+
+Evento fora ponto controle
+
+Não há dados
+
+131
+
+Evento veículo bloqueado perda satélite
+
+Não há dados
+- Valor do contador de leitura dos
+sensores (em milissegundos)
+
+132
+
+Evento debug betoneira lado direito
+
+Ex.:
+“1000;”
+- Valor do contador de leitura dos
+sensores (em milissegundos)
+
+133
+
+Evento debug betoneira lado esquerdo
+
+Ex.:
+“1000;”
+
+134
+
+Evento veículo bloqueado pela central satélite
+
+Não há dados
+
+135
+
+Evento veículo desbloqueado pela central satélite
+
+Não há dados
+- Código digitado
+
+136
+
+- Tempo total
+
+Evento veículo parado Agroterenas
+
+Ex.:
+“2510;1000;”
+- Número do ID do motorista atual
+(em hexadecimal)
+- Valor da aceleração
+
+137
+
+Evento acelerômetro freada brusca
+
+- Número do eixo (x=0, y=1, z=2)
+Ex.:
+“010203040506;1;0;”
+- Número do ID do motorista atual
+(em hexadecimal)
+
+138
+
+- Valor da aceleração
+
+Evento acelerômetro aceleração brusca
+
+- Número do eixo (x=0, y=1, z=2)
+Ex.:
+“010203040506;2;1;”
+- Tempo total do sensor acionado
+(em segundos)
+
+139
+
+Evento tempo total sensor embreagem acionado
+
+- Número do ID do motorista atual
+(em hexadecimal)
+Ex.:
+“20;010203040506;”
+
+140
+
+Evento tempo total em banguela
+
+- Tempo total do sensor acionado
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+71
+
+Protocolo de Comunicação
+(em segundos)
+- Número do ID do motorista atual
+(em hexadecimal)
+Ex.:
+“20;010203040506;”
+141
+
+Evento alerta velocidade dentro ponto controle
+
+Não há dados
+
+142
+
+Evento alerta velocidade fora ponto controle
+
+Não há dados
+- Tempo total (em segundos)
+
+143
+
+- Total metros percorridos
+
+Evento betoneira dados percurso fora alvo
+
+Ex.:
+“1000;2500;”
+- Tempo total (em segundos)
+
+144
+
+Evento betoneira dados percurso dentro alvo
+
+- Total metros percorridos
+Ex.:
+“1000;2500;”
+- Tempo total (em segundos)
+
+145
+
+Evento betoneira dados percurso fora alvo volátil
+
+- Total metros percorridos
+Ex.:
+“1000;2500;”
+- Tempo total (em segundos)
+
+146
+
+Evento betoneira dados percurso dentro alvo volátil
+
+- Total metros percorridos
+Ex.:
+“1000;2500;”
+
+147
+
+Evento betoneira dentro alvo abastecimento
+
+Não há dados
+- Tempo total que ficou dentro do
+alvo (em segundos)
+
+148
+
+Evento betoneira fora alvo abastecimento
+
+Ex.:
+“10000;”
+
+149
+
+Evento veículo desbloqueado regra jammer
+
+Não há dados
+
+150
+
+Evento sensor maquina em nível zero
+
+Não há dados
+
+151
+
+Evento sensor maquina em nível um
+
+Não há dados
+
+152
+
+Evento sensor maquina pulsando
+
+Não há dados
+
+153
+
+Evento abastecimento não autorizado diesel
+
+Não há dados
+
+Evento abastecimento não autorizado diesel total
+
+- Total de litros (deve ser divido
+por 1000)
+
+154
+
+Ex.:
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+72
+
+Protocolo de Comunicação
+“10000;”
+155
+
+Evento betoneira girando carregando
+
+Não há dados
+
+156
+
+Evento graneleiro aberto
+
+Não há dados
+
+157
+
+Evento graneleiro fechado
+
+Não há dados
+
+158
+
+Evento antena GPS externa em curto
+
+Não há dados
+
+159
+
+Evento antena GPS externa normal
+
+Não há dados
+- Número do eixo (x=0, y=1, z=2)
+- Valor do limite máximo em G
+
+160
+
+Evento vibração acelerômetro violado
+
+- Valor atual do eixo em G
+Ex.:
+“0;0.45;0.55;”
+- Valor atual do eixo X em G
+- Valor atual do eixo Y em G
+
+161
+
+Evento vibração acelerômetro restaure
+
+- Valor atual do eixo Z em G
+Ex.:
+“0;0.01;0.02;0.01;”
+
+162
+
+Evento sensor umidade normal
+
+Não há dados
+
+163
+
+Evento sensor umidade máxima
+
+Não há dados
+
+164
+
+Evento sensor umidade mínima
+
+Não há dados
+
+165
+
+Evento sensor base violado
+
+Não há dados
+
+166
+
+Evento sensor base restaurado
+
+Não há dados
+
+167
+
+Evento monitor sensor base violado
+
+Não há dados
+
+168
+
+Evento monitor sensor umidade violado
+
+Não há dados
+
+169
+
+Evento monitor sensor temperatura violado
+
+Não há dados
+
+170
+
+Evento monitor vibração violado
+
+Não há dados
+
+171
+
+Evento monitor velocidade violado
+
+Não há dados
+
+172
+
+Evento monitor desbloqueado senha
+
+Não há dados
+
+173
+
+Evento betoneira botão descarregamento
+
+Não há dados
+
+174
+
+Evento perda medidor Omnicomm
+
+Não há dados
+- Valor atual do tanque (em litros)
+
+175
+
+Evento roubo combustível medidor Omnicomm
+
+- Valor anterior do tanque (em
+litros)
+Ex.:
+“10.5;5.12;”
+
+176
+
+- Valor atual do tanque (em litros)
+
+Evento abastecimento combustível medidor
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+73
+
+Protocolo de Comunicação
+Omnicomm
+
+- Valor anterior do tanque (em
+litros)
+Ex.:
+“350.0;50.12;”
+
+177
+
+Evento conexão medidor Omnicomm
+
+Não há dados
+- Identificador, se 1=início da
+contagem, se 2=contagem ID
+conectado, se 3=contagem ID
+desconectado
+
+178
+
+- Número do ID de carreta atual
+(em hexadecimal)
+
+Evento contagem tempo id carreta
+
+- Tempo da contagem (em
+segundos)
+Ex.:
+“1;010203040506;0;”
+- Valor atual do sensor (em volts)
+179
+
+- Valor configurado (em volts)
+
+Evento sensor an5 acima do limite
+
+Ex.:
+“5.20;4.00;”
+- Valor atual do sensor (em volts)
+
+180
+
+- Valor configurado (em volts)
+
+Evento sensor an5 abaixo do limite
+
+Ex.:
+“5.20;4.00;”
+- Valor atual
+
+181
+
+- Valor configurado
+
+Evento inclinômetro eixo x
+
+Ex.:
+“125;50;”
+- Valor atual
+
+182
+
+- Valor configurado
+
+Evento inclinômetro eixo y
+
+Ex.:
+“125;50;”
+- Valor atual
+
+183
+
+- Valor configurado
+
+Evento inclinômetro eixo z
+
+Ex.:
+“125;50;”
+
+184
+
+Evento uso senha configuração rastreador
+
+Não há dados
+
+185
+
+Evento diesel abastecimento acima máximo
+
+- Total de litros abastecidos
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+74
+
+Protocolo de Comunicação
+- Valor do limite máximo
+configurado
+Ex.:
+“1000;500;”
+- Total de litros abastecidos
+186
+
+- Valor do limite mínimo
+configurado
+
+Evento diesel abastecimento abaixo mínimo
+
+Ex.:
+“250;500;”
+- Total de litros do tanque
+187
+
+- Valor do limite mínimo
+configurado
+
+Evento diesel tanque abaixo mínimo
+
+Ex.:
+“250;500;”
+188
+
+Evento câmera serial violação
+
+Não há dados
+
+189
+
+Evento câmera serial restaure
+
+Não há dados
+
+190
+
+Evento impressora serial violação
+
+Não há dados
+
+191
+
+Evento impressora serial restaure
+
+Não há dados
+
+192
+
+Evento balança serial violação
+
+Não há dados
+
+193
+
+Evento balança serial restaure
+
+Não há dados
+
+194
+
+Evento id motorista balança
+
+Evento não enviado
+
+195
+
+Evento modulo RF sem comunicação
+
+Evento não enviado
+
+196
+
+Evento tamper violação
+
+Não há dados
+
+197
+
+Evento tamper restaure
+
+Não há dados
+
+198
+
+Evento violação transitório acelerômetro
+
+Não há dados
+
+199
+
+Evento bateria interna baixa
+
+Não há dados
+
+200
+
+Evento velocidade máxima dentro cerca eletrônica
+
+- Valor da velocidade máxima
+dentro da cerca (em Km/h – de 0
+até 255)
+Ex.:
+“125;”
+
+201
+
+Evento veículo bloqueado regra horário
+
+Não há dados
+
+202
+
+Evento veículo desbloqueado regra horário
+
+Não há dados
+
+203
+
+Evento betoneira descarregamento rpm
+
+Não há dados
+
+204
+
+Evento modulo RF motivo ativação embarcada
+
+Evento não enviado
+
+205
+
+Evento perda sensor TPMS
+
+Não há dados
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+75
+
+Protocolo de Comunicação
+206
+
+Evento perda sensor pressão externo
+
+Não há dados
+- Valor da pressão atual
+
+207
+
+- Valor da pressão configurada
+
+Evento sensor pressão externo mínimo
+
+Ex.:
+“10.2;5.5;”
+- Valor da pressão atual
+
+208
+
+- Valor da pressão configurada
+
+Evento sensor pressão externo máximo
+
+Ex.:
+“10.2;5.5;”
+
+209
+
+Evento modulo RF motivo desativação embarcada
+
+Evento não enviado
+
+210
+
+Evento monitor bateria interna ativo
+
+Não há dados
+
+211
+
+Evento veículo bloqueado regra velocidade
+
+Não há dados
+
+212
+
+Evento veículo desbloqueado regra velocidade
+
+Não há dados
+
+213
+
+Leitor analógico externo conectado
+
+Não há dados
+
+214
+
+Leitor analógico externo desconectado
+
+Não há dados
+
+215
+
+Não usado
+
+216
+
+Não usado
+
+217
+
+Não usado
+
+218
+
+Evento de erro na fonte de alimentação (válido
+somente para um modelo de rastreador)
+
+Não há dados
+
+219
+A
+
+Não usado
+
+255
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+76
+
+Protocolo de Comunicação
+
+5.38 MENSAGEM ID: 48 – EVENTO ERRO DE SENHA
+Esta mensagem é gerada automática pelo rastreador quando o operador digita uma senha
+incorreta no teclado. Esta funcionalidade só é realizada quando o teclado estiver habilitado. Para
+esta mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 48
+Permite dados adicionais: Não
+
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1) e após haverá
+as seguintes informações:
+
+Valor
+
+Descrição
+
+2
+
+Senha para abrir ou fechar baú
+
+3
+
+Senha para bloqueio ou desbloqueio
+
+4
+
+Senha para lacre ou deslacre porta motorista
+
+5
+
+Senha para lacre ou deslacre porta carona
+
+6
+
+Senha para lacre ou deslacre porta baú
+
+7
+
+Senha para lacre ou deslacre carreta
+
+8
+
+Senha para envio de macro (quando habilitado a
+solicitação da senha)
+
+9
+
+Senha para colocar em modo viagem ou parado
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+77
+
+Protocolo de Comunicação
+
+5.39 MENSAGEM ID: 51 – EVENTO PERDA DE TECLADO
+Esta mensagem informa ao servidor quando ocorreu uma perda do teclado, desconexão. Esta
+mensagem só é enviada somente quando a funcionalidade teclado externo estiver habilitada. Para
+esta mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 51
+Permite dados adicionais: Não
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1)
+
+5.40 MENSAGEM ID: 55 – EVENTO ID DE MOTORISTA
+Esta mensagem informa ao servidor que o rastreador fez a leitura com sucesso de algum ID de
+motorista da sua lista cadastrada na memória interna. Para esta mensagem o servidor deverá
+responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 55
+Permite dados adicionais: Não
+
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1) e após haverá
+as seguintes informações:
+
+nº
+
+1
+
+Informação
+
+Número serial único do ID
+
+Descrição
+Número serial único do iButton
+Formato MSB - LSB
+Exemplo:
+00-00-12-E1-1C-33
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+78
+
+Protocolo de Comunicação
+Regra que foi cadastrada para o ID
+Sendo que:
+Bit 0 – Se 1, indica que o rastreador vai
+bloquear o veículo somente quando ignição
+estiver desligada
+Bit 1 – Se 1, indica que o rastreador vai
+desbloquear o veículo somente quando
+ignição estiver ligada
+
+2
+
+Regra do ID
+
+Bit 2 – Se 1, indica que o rastreador vai
+enviar para o servidor uma mensagem com
+os dados do ID (mensagem ID: 0x37 –
+removida das versões V3.14 ou superior,
+rastreador sempre envia a mensagem)
+Bit 3 – Se 1, indica que o rastreador vai
+colocar o veículo em modo viagem
+Bit 4 – Se 1, indica que o rastreador vai
+colocar o veículo em modo parado
+Bit 5 – Se 1, indica que o rastreador vai
+liberar o graneleiro
+
+5.41 MENSAGEM ID: 59 – EVENTO MOTOR OCIOSO
+Esta mensagem envia os dados do motor ocioso. Para esta mensagem o servidor deverá
+responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 59
+Permite dados adicionais: Não
+
+Payload desta mensagem é igual ao payload da mensagem de tracking (ID: 1) e após haverá
+as seguintes informações:
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+79
+
+Protocolo de Comunicação
+
+nº
+
+1
+
+Informação
+
+Descrição
+Tempo total em que o motor ficou ocioso
+conforme a regra configurada no rastreador.
+Valor em segundos
+
+Tempo total de motor ocioso
+Exemplo:
+300;
+Número do último ID de motorista lido e
+reconhecido.
+(em hexadecimal)
+
+2
+
+Número do ID de motorista
+
+Exemplo:
+010203040506;
+
+5.42 MENSAGEM ID: 61 – TESTE DE NÚMERO DE IP
+Esta mensagem é gerada automaticamente pelo rastreador para teste de comunicação do
+novo número de IP do servidor obtido através de atualização via DNS. Esta mensagem não possui
+nenhum conteúdo em seu payload, somente header. E o servidor deverá responder somente ACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 0x3D
+Permite dados adicionais: Não
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+80
+
+Protocolo de Comunicação
+
+5.43 MENSAGEM ID: 63 – RESPOSTA ID DE MOTORISTA CADASTRADO
+Esta mensagem envia para o servidor os dados do ID de motorista que foi solicitado pela
+mensagem do servidor (ID 186). Para esta mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 63
+
+nº
+
+Informação
+
+1
+
+Número do ID
+
+Descrição
+Número da posição atual do ID na memória
+do rastreador, de 1 até 1024
+
+2
+
+Quantidade total de Ids
+
+Quantidade total de ID’s cadastrados na
+memória do rastreador.
+
+3
+
+Código do ID
+
+Código do ID (em hexadecimal)
+Regra do ID (em hexadecimal)
+Sendo que:
+
+4
+
+Regra do ID
+
+Bit 0 = se 1, indica que é para bloquear
+Bit 1 = se 1, indica que é para desbloquear
+Bit 2 = não usado
+Bit 3 = se 1, coloca em modo viagem
+Bit 4 = se 1, coloca em modo parado
+Bit 5 = se 1, habilita o graneleiro
+Demais bits, não usados
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+81
+
+Protocolo de Comunicação
+
+5.44 MENSAGEM ID: 65 – RESPOSTA ID DE CARRETA CADASTRADO
+Esta mensagem envia para o servidor os dados do ID de carreta que foi solicitado pela
+mensagem do servidor (ID 188). Para esta mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 63
+
+nº
+
+Informação
+
+1
+
+Número do ID
+
+Descrição
+Número da posição atual do ID na memória
+do rastreador, de 1 até 128
+
+2
+
+Quantidade total de Ids
+
+Quantidade total de ID’s cadastrados na
+memória do rastreador.
+
+3
+
+Código do ID
+
+Código do ID (em hexadecimal)
+Regra do ID (em hexadecimal)
+Sendo que:
+
+4
+
+Regra do ID
+
+Bit 0 = se 1, habilita a contagem do tempo
+do ID de carreta conectada.
+Demais bits, não usados
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+82
+
+Protocolo de Comunicação
+
+5.45 MENSAGEM ID: 69 – RESPOSTA ID DE SLEEP CADASTRADO
+Esta mensagem envia para o servidor os dados do ID de sleep que foi solicitado pela
+mensagem do servidor (ID 192). Para esta mensagem o servidor deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 63
+
+nº
+
+Informação
+
+1
+
+Número do ID
+
+Descrição
+Número da posição atual do ID na memória
+do rastreador, de 1 até 32
+
+2
+
+Quantidade total de Ids
+
+Quantidade total de ID’s cadastrados na
+memória do rastreador.
+
+3
+
+Código do ID
+
+Código do ID (em hexadecimal)
+Regra do ID (em hexadecimal)
+
+4
+
+Regra do ID
+
+Não há regras
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+83
+
+Protocolo de Comunicação
+
+6 DESCRIÇÃO DAS MENSAGENS DO SERVIDOR
+6.1 MENSAGEM ID: 129 – ALTERAÇÃO NÚMERO IP E PORTA
+Esta mensagem altera o número IP e porta de comunicação do rastreador para servidor. Para
+esta mensagem o rastreador deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 129
+
+nº
+1
+
+Informação
+Número identificação
+
+2
+
+Número IP
+
+3
+
+Número porta
+
+Descrição
+Número de identificação, valor de 1 a 4
+Número IP novo de comunicação – sendo
+MSB – LSB
+Separado com ‘.’ (ponto)
+Número da porta nova de comunicação –
+valor de 1 a 65535
+
+Exemplo:
+RST;A;RST-LC;V4.14;014030001;1;129;1;172.213.205.62;6501;FIM;
+
+6.2 MENSAGEM ID: 130 – ALTERAÇÃO APN
+Esta mensagem altera a APN configurável do simcard 1 ou 2 do rastreador. Para esta
+mensagem o rastreador deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 130
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+84
+
+Protocolo de Comunicação
+nº
+1
+
+Informação
+Número do simcard a ser
+alterado
+
+Descrição
+
+2
+
+Tamanho da APN
+
+Tamanho da APN em byte - limite máximo
+de 23 bytes
+
+3
+
+Tamanho do usuário da APN
+
+Tamanho do usuário da APN em byte limite máximo de 15 bytes
+
+4
+
+Tamanho da senha da APN
+
+Tamanho da senha da APN em byte - limite
+máximo de 15 bytes
+
+5
+
+Nome da APN
+
+Nome da APN em ASCII byte - limite
+máximo de 23 bytes
+
+6
+
+Usuário da APN
+
+Nome do usuário da APN em ASCII byte limite máximo de 15 bytes
+
+7
+
+Senha da APN
+
+Nome da senha da APN em ASCII byte limite máximo de 15 bytes
+
+Se valor = 1, simcard 1. Se valor = 2,
+simcard 2.
+
+Exemplo:
+RST;A;RST-LC;V4.14;014030001;1;129;1;16;4;4;abcd.vivo.com.br;vivo;vivo;FIM;
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+85
+
+Protocolo de Comunicação
+
+6.3 MENSAGEM ID: 133 – TIMESTAMP
+Esta mensagem é a resposta do servidor para a mensagem de solicitação do rastreador, ID 8
+da mensagem de solicitação. Para esta mensagem o rastreador deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 133
+
+nº
+1
+
+Informação
+Timestamp
+
+Descrição
+Valor do Timestamp atual do servidor –
+GMT (em decimal)
+
+Exemplo:
+RST;A;RST-LC;V4.14;014030001;1;133;1441047080;FIM;
+1441047080 = segunda-feira, 31 de agosto de 2015, 18:51:20 (GMT)
+
+6.4 MENSAGEM ID: 134 – ACK DO RASTREADOR PARA O SERVIDOR
+Esta mensagem é gerada somente pelo rastreador para o servidor, ela indica ao servidor que a
+mensagem enviada por ele está correta. Deverá conter as mesmas informações enviadas no header
+pelo servidor, ou seja, número de sequência, número serial, versão de hardware e versão de
+firmware.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 134
+
+Esta mensagem não possui payload, somente header
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+86
+
+Protocolo de Comunicação
+
+6.5 MENSAGEM ID: 136 – INFORMAÇÕES PARAMETROS
+Esta mensagem solicita ao rastreador as informações dos parâmetros de configuração. Para
+esta mensagem o rastreador deverá responder ACK ou NACK e em seguida irá enviar a mensagem
+ID 11.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 136
+
+Esta mensagem não possui payload, somente header
+Exemplo:
+RST;A;RST-LC;V4.14;014030001;1;136;FIM;
+
+6.6 MENSAGEM ID: 137 – INFORMAÇÕES DO MODEM E SIMCARD
+Esta mensagem solicita ao rastreador as informações do número serial do modem e número
+dos simcards instalados. Para esta mensagem o rastreador deverá responder ACK ou NACK e em
+seguida irá enviar a mensagem ID 12.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 137
+
+Esta mensagem não possui payload, somente header
+Exemplo:
+RST;A;RST-LC;V4.14;014030001;1;137;FIM;
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+87
+
+Protocolo de Comunicação
+
+6.7 MENSAGEM ID: 142 – RESPOSTA POSICAO RASTREADOR
+Esta mensagem solicita ao rastreador o envio da sua posição atual, solicitação de posição
+avulsa. Para esta mensagem o rastreador deverá responder ACK ou NACK e em seguida irá enviar a
+mensagem ID 13.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 142
+
+Esta mensagem não possui payload, somente header
+Exemplo:
+RST;A;RST-LC;V4.14;014030001;1;142;FIM;
+
+6.8 MENSAGEM ID: 143 – BLOQUEIO
+Esta mensagem solicita ao rastreador a ativação da saída de bloqueio. O rastreador também
+irá ligar a sirene e o pisca-alerta. Para esta mensagem o rastreador deverá responder ACK ou
+NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 143
+
+Esta mensagem não possui payload, somente header
+Exemplo:
+RST;A;RST-LC;V4.14;014030001;1;143;FIM;
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+88
+
+Protocolo de Comunicação
+
+6.9 MENSAGEM ID: 144 – DESBLOQUEIO
+Esta mensagem solicita ao rastreador a desativação da saída de bloqueio. O rastreador
+também irá desligar a sirene e o pisca-alerta. Para esta mensagem o rastreador deverá responder
+ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 144
+
+Esta mensagem não possui payload, somente header
+Exemplo:
+RST;A;RST-LC;V4.14;014030001;1;144;FIM;
+
+6.10 MENSAGEM ID: 145 – CONFIGURAÇÃO DOS SENSORES
+Esta mensagem altera a configuração dos sensores do rastreador. Para esta mensagem o
+rastreador deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 145
+
+nº
+
+1
+
+Informação
+
+Tipo do sensor 1
+
+Descrição
+Configuração do tipo do sensor:
+Se 1 – Tipo habilitado
+Se 2 – Tipo botão de pânico
+Se 3 – Tipo botão antifurto
+Se 4 – Tipo painel
+Se 5 – Tipo teclado
+Se 6 – Tipo porta motorista
+Se 7 – Tipo porta carona
+Se 8 – Tipo carreta
+Se 9 – Tipo porta baú
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+89
+
+Protocolo de Comunicação
+Se 10 – Tipo porta baú lateral
+Se 11 – Tipo quinta roda
+Se 12 – Tipo caixa falsa
+Se 13 – Tipo portas cabine
+Se 14 – Tipo velocidade alarme
+Se 15 – Tipo bateria monitorada
+Se 16 – Tipo rastreador carreta
+Se 17 – Tipo acoplamento móvel
+Se 18 – Tipo sensor configurável 1
+Se 19 – Tipo sensor configurável 2
+Se 20 – Tipo sensor configurável 3
+Se 21 – Tipo sensor configurável 4
+Se 22 – Tipo sensor configurável 5
+Se 23 – Tipo sensor configurável 6
+Se 24 – Tipo sensor configurável 7
+Se 25 – Tipo sensor configurável 8
+Se 26 – Tipo ar condicionado
+Se 27 – Tipo plataforma
+Se 28 – Tipo betoneira LD mecânica
+Se 29 – Tipo betoneira LE mecânica
+Se 30 – Tipo betoneira LD eletrônica
+Se 31 – Tipo betoneira LE eletrônica
+Se 32 – Tipo sensor chuva
+Se 33 – Tipo sensor embreagem
+Se 34 – Tipo sensor freio estacionamento
+Se 35 – Tipo sensor farol baixo
+Se 36 – Tipo sensor farol alto
+Se 37 – Tipo sensor lanterna
+Se 38 – Tipo alerta de velocidade chuva
+Se 39 – Tipo sensor horímetro
+Se 40 – Tipo sensor saturação filtro ar
+Se 41 – Tipo sensor saturação filtro hd
+Se 42 – Tipo sensor pressão óleo motor
+Se 43 – Tipo botão controle de diesel
+Se 44 – Tipo botão entregue
+Se 45 – Tipo botão em transito
+Se 46 – Tipo botão parado
+Se 47 – Tipo botão aguardando cliente
+Se 48 – Tipo sensor catraca LD
+Se 49 – Tipo sensor catraca LE
+Se 50 – Tipo sensor catraca sensor luz
+Se 51 – Tipo sensor base estabilizadora
+Se 52 – Tipo sensor betoneira
+descarregando
+Se 53 – Tipo sensor passageiro
+Se 54 – Tipo sensor modo avião
+Se 55 – Tipo sensor tamper
+Se 56 – Tipo sensor horímetro led 1
+Se 57 – Tipo sensor horímetro led 2
+Se 58 – Tipo sensor horímetro led 3
+Se 59 – Tipo sensor horímetro led 4
+Se 60 – Tipo sensor betoneira único
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+90
+
+Protocolo de Comunicação
+Se 61 – Tipo sensor analógico (necessita
+alteração de hardware para o
+funcionamento)
+Se 62 – Tipo sensor freio motor
+Se 255 – Não altera a configuração do
+sensor
+Se valor igual a:
+2
+
+Polaridade do sensor 1
+
+3
+
+Tempo de debounce do sensor 1
+
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+
+Tipo do sensor 2
+Polaridade do sensor 2
+Tempo de debounce do sensor 2
+Tipo do sensor 3
+Polaridade do sensor 3
+Tempo de debounce do sensor 3
+Tipo do sensor 4
+Polaridade do sensor 4
+Tempo de debounce do sensor 4
+Tipo do sensor 5
+Polaridade do sensor 5
+Tempo de debounce do sensor 5
+
+0 = polaridade em nível baixo
+1 = polaridade em nível flutuante
+2 = polaridade em nível alto
+Valor do debounce do sensor dado em
+1/10ms, ou seja, para o valor de debounce
+de 1 segundo, o valor deverá ser: 100.
+(valor de 1 até 65535)
+
+Parâmetros seguem o mesmo formato do
+sensor 1.
+
+Exemplo:
+RST;A;RST-LC;V4.14;014030001;1;145;2;1;100;6;1;200;7;1;200;8;1;600;9;1;600;FIM;
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+91
+
+Protocolo de Comunicação
+
+6.11 MENSAGEM ID: 149 – NACK DO RASTREADOR PARA O SERVIDOR
+Esta mensagem é gerada somente pelo rastreador para o servidor, ela indica ao servidor que a
+mensagem enviada por ele não foi interpretada corretamente ou está errada. Deverá conter as
+mesmas informações enviadas no header pelo servidor, ou seja, número de sequência, número
+serial, versão de hardware e versão de firmware.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 149
+
+Esta mensagem não possui payload, somente header
+
+6.12 MENSAGEM ID: 152 – RESET DO RASTREADOR
+Esta mensagem força um reset do rastreador. Assim que o rastreador recebe esta mensagem,
+dentro de 30 segundos o mesmo fará um reset. Para esta mensagem o rastreador deverá responder
+ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 152
+
+Esta mensagem não possui payload, somente header
+Exemplo:
+RST;A;RST-LC;V4.14;014030001;1;152;FIM;
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+92
+
+Protocolo de Comunicação
+
+6.13 MENSAGEM ID: 157 – LIMPA LOG RASTREADOR
+Esta mensagem faz com que o rastreador apague todo o log de mensagens, se houver. Para
+esta mensagem o rastreador deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 157
+
+Esta mensagem não possui payload, somente header
+Exemplo:
+RST;A;RST-LC;V4.14;014030001;1;157;FIM;
+
+6.14 MENSAGEM ID: 160 – APAGA ALVO
+Esta mensagem solicita ao rastreador o apagamento do alvo. Para esta mensagem o
+rastreador deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 160
+
+nº
+1
+
+Descrição
+
+Informação
+ID do alvo
+
+ID do alvo a ser apagado – 1 a 16
+
+Exemplo:
+RST;A;RST-LC;V4.14;014030001;1;160;1;FIM;
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+93
+
+Protocolo de Comunicação
+
+6.15 MENSAGEM ID: 161 – CONFIGURA ALVO
+Esta mensagem altera os parâmetros de um alvo especifico do rastreador. Para esta
+mensagem o rastreador deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 161
+
+nº
+
+Informação
+
+1
+
+ID alvo
+
+2
+
+Latitude alvo
+
+3
+
+Longitude alvo
+
+4
+
+Regra do alvo
+
+5
+
+Tolerância alvo
+
+Descrição
+Número do ID do alvo a ser cadastrado – 1
+até 16
+Latitude do alvo
+Formato ponto flutuante
+Longitude do alvo
+Formato ponto flutuante
+Regra do alvo, sendo que:
+Se 1 – Regra bloqueia veículo no alvo
+Se 2 – Regra desbloqueia veículo no alvo
+Tolerância em metros do alvo
+De 1 até 65535 metros
+
+Exemplo:
+RST;A;RST-LC;V4.14;014030001;1;160;1;-23.123456;-46.123456;2;500;FIM;
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+94
+
+Protocolo de Comunicação
+
+6.16 MENSAGEM ID: 164 – CONFIGURA ANTI-FURTO
+Esta mensagem altera os parâmetros de configuração do modo antifurto do rastreador. Para
+esta mensagem o rastreador deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 164
+
+nº
+
+Informação
+
+1
+
+Ativa o modo antifurto
+
+2
+
+3
+
+4
+
+Tempo de ativação do modo
+manobrista
+
+Contagem de ignição ligada em
+modo manobrista
+
+Tempo de debounce da ignição
+ligada
+
+Descrição
+Ativa ou desativa o modo antifurto
+Se 1 – desativa o antifurto
+Se 2 – ativa o antifurto
+Tempo em segundos para a ativação do
+modo manobrista
+(de 5 até 255)
+Contagem máxima de ignições
+ligadas/desligadas para o modo manobrista
+(de 1 até 255)
+Tempo em segundos de debounce da
+ignição ligada para desligada
+(de 0 até 60)
+Modo de violação do antifurto
+Se 0 – violação do antifurto não gera
+nenhum evento no rastreador
+
+5
+
+Modo de violação do antifurto
+
+Se 1 – violação do antifurto gera uma
+mensagem para o servidor e bloqueio do
+veículo e liga a sirene
+Se 2 – violação do antifurto gera uma
+mensagem para o servidor, mas não gera
+bloqueio do veículo e não liga a sirene
+
+6
+
+Tempo violação do antifurto
+
+Tempo em segundos de violação do
+antifurto
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+95
+
+Protocolo de Comunicação
+(de 30 até 65535)
+
+7
+
+8
+
+Tempo máximo em modo
+manobrista
+
+Tempo de ativação mínima do
+botão antifurto
+
+Tempo em segundos máximo para o modo
+manobrista
+(de 300 até 65535)
+Tempo em segundos de ativação mínima
+do botão antifurto para fazer o desbloqueio
+do veiculo
+(de 3 até 65535)
+
+Exemplo:
+RST;A;RST-LC;V4.14;014030001;1;164;2;5;5;3;1;240;900;60;FIM;
+
+6.17 MENSAGEM ID: 170 – CONFIGURAÇÃO DOS ATUADORES
+Esta mensagem altera a configuração dos atuadores do rastreador, bloqueador, sirene, piscaalerta e trava de baú. Observação: para configurar a função de cada saída do rastreador é
+necessário enviar a mensagem de alteração de parâmetros (ID 177) e o SubId 37 - Configuração dos
+tipos dos atuadores do rastreador. Para esta mensagem o rastreador deverá responder ACK ou
+NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 170
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+96
+
+Protocolo de Comunicação
+nº
+
+Informação
+
+Descrição
+Se:
+
+1
+
+Tipo do atuador para
+configuração
+
+1 – Atuador sirene
+2 – Atuador pisca-alerta
+3 – Atuador trava baú um
+4 – Atuador trava baú dois
+5 – Atuador trava baú três
+6 – Atuador bloqueador
+
+Para o atuador sirene:
+nº
+
+Informação
+
+2
+
+Polaridade do atuador
+
+Descrição
+Se 0 = ativação da sirene em terra (GND)
+Se 1 = ativação da sirene em flutuante
+
+3
+
+Tempo de retardo
+
+Tempo de retardo para ligar a sirene
+De 0 até 255 segundos
+
+4
+
+Tempo de ativação
+
+Tempo de ativação da sirene (ligada)
+De 0 até 255 segundos
+
+5
+
+6
+
+Tempo de repouso
+
+Número de repetições
+
+Tempo de desativação da sirene
+(desligada)
+De 0 até 255 segundos
+Número de repetições do ciclo ligar-desligar
+De 0 até 255 segundos
+Sendo que 255 = sempre
+
+Para o atuador pisca-alerta:
+nº
+
+Informação
+
+2
+
+Polaridade do atuador
+
+3
+
+Tempo de retardo
+
+4
+
+Tempo de ativação
+
+Descrição
+Se 0 = ativação do pisca alerta em terra
+(GND)
+Se 1 = ativação do pisca alerta em flutuante
+Tempo de retardo para ligar o pisca alerta
+De 0 até 255 segundos
+Tempo de ativação do pisca alerta (ligado)
+De 0 até 255 segundos
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+97
+
+Protocolo de Comunicação
+
+5
+
+6
+
+Tempo de repouso
+
+Número de repetições
+
+Tempo de desativação do pisca alerta
+(desligada)
+De 0 até 255 segundos
+Número de repetições do ciclo ligar-desligar
+De 0 até 255 segundos
+Sendo que 255 = sempre
+
+Para o atuador trava de baú um, dois e três:
+nº
+
+Informação
+
+2
+
+Configuração do tipo de trava de
+baú
+
+3
+
+Fechamento automático da trava
+de baú
+
+Descrição
+Se 0 = trava desabilitada
+Se 1 = trava tipo solenoide
+Se 2 = trava tipo motorizada
+Se 0 = fechamento automático da trava
+desabilitado
+Se 1 = fechamento automático da trava
+habilitado
+Válido somente para trava tipo motorizada
+Tempo de retardo para ligar a trava
+
+4
+
+Tempo de retardo
+
+De 0 até 255 segundos
+Válido somente para trava tipo solenoide
+Tempo de ativação da trava
+
+5
+
+Tempo de ativação
+
+De 0 até 255 segundos
+Válido somente para trava tipo solenoide
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+98
+
+Protocolo de Comunicação
+Para o atuador bloqueador:
+nº
+
+Informação
+
+Descrição
+Se 0 = bloqueado saída em terra /
+desbloqueado saída flutuante
+Se 1 = bloqueado saída flutuante /
+desbloqueado saída em terra
+
+2
+
+Polaridade do atuador
+Se 2 = bloqueado saída em terra /
+desbloqueado e em sleep saída flutuante
+Se 3 = bloqueador saída temporizada
+Tempo de retardo para ligar o bloqueador
+De 0 até 255 segundos
+
+3
+
+Tempo de retardo
+Válido somente para o tipo bloqueador
+saída temporizada
+Tempo de ativação do bloqueador (ligado)
+De 0 até 255 segundos
+
+4
+
+Tempo de ativação
+Válido somente para o tipo bloqueador
+saída temporizada
+Tempo de desativação do bloqueador
+(desligado)
+
+5
+
+Tempo de repouso
+
+De 0 até 255 segundos
+Válido somente para o tipo bloqueador
+saída temporizada
+Número de repetições do ciclo ligar-desligar
+De 0 até 255 segundos
+
+6
+
+Número de repetições
+
+Sendo que 255 = sempre
+Válido somente para o tipo bloqueador
+saída temporizada
+Incrementa o valor de tempo de ativação e
+repouso em cada ciclo executado
+
+7
+
+Fator de incremento
+De 0 até 255 segundos
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+99
+
+Protocolo de Comunicação
+Válido somente para o tipo bloqueador
+saída temporizada
+
+Exemplo:
+Para configurar a sirene:
+RST;A;RST-LC;V4.14;014030001;1;170;1;0;10;20;20;255;FIM;
+
+Para configurar o bloqueador:
+RST;A;RST-LC;V4.14;014030001;1;170;6;3;10;10;10;20;0;FIM;
+
+6.18 MENSAGEM ID: 174 – BLOQUEIO SILENCIOSO
+Esta mensagem solicita ao rastreador a ativação da saída de bloqueio. O rastreador não irá
+ligar a sirene e o pisca-alerta – somente a saída de bloqueio será ativada. Para esta mensagem o
+rastreador deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 174
+
+Esta mensagem não possui payload, somente header
+Exemplo:
+RST;A;RST-LC;V4.14;014030001;1;174;FIM;
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+100
+
+Protocolo de Comunicação
+
+6.19 MENSAGEM ID: 177 – ALTERAÇÃO PARÂMETRO
+Essa mensagem configura um determinado parâmetro do rastreador. A tabela abaixo possui
+todos os parâmetros possíveis para a configuração e seu formato. Para esta mensagem o rastreador
+deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 177
+Exemplo:
+RST;A;RST-LC;V4.14;014030001;1;177;..dados..;FIM;
+No campo “dados” deve conter a informação para alterar o parâmetro: “subId;parâmetros;”
+
+Sub-Id
+
+Descrição
+
+Formato
+
+1
+
+Não usado
+
+-
+
+2
+
+Não usado
+
+-
+
+Detalhamento
+
+Em vermelho, número das
+operadoras:
+Operadoras do Brasil:
+
+3
+
+Operadora a ser utilizada para o
+simcard 1
+
+4
+
+APN a ser utilizada para o
+simcard 1
+
+“3;número operadora;”
+
+Valor 0 = Tim
+Valor 1 = Claro
+Valor 2 = Oi
+Valor 3 = Vivo
+Valor 4 = Amazônia
+Telecom
+Valor 5 = Br Telecom
+Valor 6 = Telemig
+Valor 7 = Sercomtel
+Valor 8 = Ctbc Celular
+
+“4;0;”
+Em vermelho, se valor =
+0, usar a apn padrão. Se
+valor = 1, usar a apn
+
+ou
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+101
+
+Protocolo de Comunicação
+“4;1;”
+
+configurável primeiro e
+depois a apn padrão (se
+não conseguir conexão).
+
+5
+
+Intervalo para envio da
+mensagem de sem GPS válido
+
+“5;1000;”
+
+Em vermelho, intervalo
+para o envio da
+mensagem. Valor em
+segundos, de 1200 até
+65535.
+
+6
+
+Tempo máximo para esperar o
+GPS ficar válido durante o sleep
+do rastreador
+
+“6;600;”
+
+Em vermelho, valor em
+segundos, de 120 até
+65535.
+
+7
+
+Tempo para início do modo
+sleep do rastreador, válido para
+os modos sleep simples,
+progressivo ou super sleep
+
+“7;900;”
+
+Em vermelho, valor em
+segundos, de 60 até
+65535.
+
+Em vermelho, define o
+intervalo quando ignição
+ligada.
+8
+
+Intervalo para o envio da
+mensagem de tracking quando
+ignição ligada e desligada
+
+“8;60;120;”
+
+Em verde, quando ignição
+desligada.
+Valores em segundos, de
+10 até 65535.
+Valor em segundos, de 60
+até 65535.
+
+9
+
+Intervalo para o envio da
+mensagem de tracking em
+sleep, para o modo simples
+
+“9;900;”
+
+10
+
+Tempo de duração do modo
+violação do rastreador
+
+“10;900;”
+
+11
+
+Não usado
+
+Atenção: se essa
+configuração for menor
+que 120 (2 minutos) e o
+tipo do modo sleep for
+simples, o rastreador
+nunca irá entrar em modo
+sleep.
+Valor em segundos, de
+300 até 65535.
+
+-
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+102
+
+Protocolo de Comunicação
+
+Em vermelho, valor 165
+habilita o modo super
+sleep, valor 0 desabilita.
+Em verde, intervalo para o
+envio da mensagem de
+tracking em sleep, quando
+não detectado movimento.
+12
+
+Configuração do modo super
+sleep
+
+“12;165;900;900;”
+
+Em azul, intervalo para o
+envio da mensagem de
+tracking em sleep, quando
+detectado movimento
+(deve ser habilitado a
+configuração do
+acelerômetro).
+Valores em segundos, de
+60 até 65535.
+Em vermelho, duração da
+primeira fase do modo
+sleep.
+Em verde, duração da
+segunda fase do modo
+sleep.
+Em azul, duração da
+terceira fase do modo
+sleep.
+
+13
+
+Configuração dos tempos de
+duração do modo sleep
+progressivo
+
+“13;165;900;900;900;
+900;900;900;”
+
+Em cinza, intervalo de
+envio da mensagem de
+tracking em sleep durante
+a primeira fase do modo
+sleep.
+Em laranja, intervalo de
+envio da mensagem de
+tracking em sleep durante
+a segunda fase do modo
+sleep.
+Em roxo, intervalo de
+envio da mensagem de
+tracking em sleep durante
+a terceira fase do modo
+sleep.
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+103
+
+Protocolo de Comunicação
+Em vermelho escuro,
+intervalo de envio da
+mensagem de tracking em
+sleep durante a última
+fase do modo sleep.
+Valores em segundos, de
+1 até 65535.
+14
+
+Não usado
+
+-
+
+15
+
+Não usado
+
+-
+
+16
+
+Não usado
+
+-
+
+17
+
+Não usado
+
+-
+
+18
+
+Não usado
+
+-
+
+19
+
+Não usado
+
+Em vermelho, polaridade
+do atuador:
+Se valor 0 = Bloqueado
+saída em terra /
+Desbloqueado saída
+flutuante
+
+20
+
+Configuração do bloqueador
+
+“20;3;5;5;5;1;0;”
+
+Se valor 1 = Bloqueado
+saída flutuante /
+Desbloqueado saída em
+terra
+Se valor 2 = Bloqueado
+saída em terra /
+Desbloqueado e em sleep
+saída flutuante
+Se valor 3 = Bloqueador
+saída temporizada
+Em verde, tempo retardo
+inicial. Em segundos, de 0
+até 255.
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+104
+
+Protocolo de Comunicação
+
+Em azul, tempo de
+ativação. Em segundos,
+de 0 até 255.
+Em cinza, tempo de
+repouso. Em segundos,
+de 0 até 255.
+Em laranja, número de
+repetições. De 0 até 255,
+sendo que 255 = sempre.
+Em roxo, fator de
+incremento. Em segundos,
+de 0 até 255.
+21
+
+Não usado
+
+-
+
+22
+
+Não usado
+
+Em vermelho,
+configuração do tipo de
+modo sleep.
+
+23
+
+Configuração do tipo do modo
+sleep - simples ou progressivo
+
+“23;1;”
+
+Se 1 = modo sleep
+progressivo.
+Se 0 = modo sleep
+simples.
+
+24
+
+Não usado
+
+Em vermelho,
+configuração da função do
+acelerômetro, se:
+
+25
+
+Configuração do acelerômetro
+
+“25;7;10;30;15;1;”
+
+Bit 0 em 1 = detectar
+movimento em modo
+super sleep.
+Bit 1 em 1 = detectar
+movimento suspeito
+quando em modo sleep.
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+105
+
+Protocolo de Comunicação
+Bit 2 em 1 = detectar
+ignição por movimento do
+acelerômetro.
+Em verde, tempo de
+debounce para detectar
+movimento (valor de 1 até
+255 segundos).
+Em azul, tempo de
+debounce para detectar
+parado (valor de 1 até 255
+segundos).
+Em cinza, valor do filtro de
+ruído do acelerômetro
+(valor de 1 até 255).
+Em laranja, regras para o
+movimento suspeito:
+Se bit 0 em 1 = bloquear
+veículo.
+Se bit 1 em 1 = ligar a
+sirene.
+Se bit 2 em 1 = ligar o
+pisca alerta.
+Se bit 3 em 1 = enviar
+mensagem para o
+servidor.
+Em vermelho, tipo do
+sensor de pulsos 1.
+
+26
+
+Configuração do sensor de
+pulsos
+
+“26;1;1;”
+
+Em verde, tipo do sensor
+de pulsos 2 (para
+rastreadores que possuem
+o segundo sensor de
+pulsos).
+Se valor:
+0 = desabilitado
+1 = hodômetro
+2 = combustível
+3 = RPM
+4 = controle de diesel
+5 = não alterar
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+106
+
+Protocolo de Comunicação
+6 = sensor maquina
+27
+
+Não usado
+
+-
+
+28
+
+Não usado
+
+-
+
+29
+
+30
+
+Configuração do excesso de
+velocidade
+
+Em vermelho, limite de
+velocidade. De 1 até 254
+Km/h.
+“29;120;30;”
+Em verde, tempo do
+excesso de velocidade.
+De 1 até 254 segundos.
+
+Não usado
+
+Esta configuração é a
+quantidade de leituras que
+o rastreador faz para
+calcular a tensão média
+da bateria externa (do
+veículo). O intervalo de
+leitura é a cada 1
+segundo.
+
+31
+
+Quantidade de leituras da
+bateria externa
+
+“31;5;10;”
+
+Em vermelho, quantidade
+de leituras quando o
+rastreador estiver com a
+ignição ligada (valor de 1
+até 255).
+Em verde, quantidade de
+leituras quando o
+rastreador estiver em
+sleep (valor de 1 até 255).
+
+32
+
+Hodômetro inicial do veiculo
+
+“32;100500;”
+
+33
+
+Não usado
+
+-
+
+34
+
+Não usado
+
+-
+
+Data
+
+Em vermelho, valor do
+hodômetro atual do
+veículo.
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+107
+
+Protocolo de Comunicação
+
+Em vermelho, limite de
+aceleração para o
+tacógrafo. Valor em m/s2,
+de 0 até 255.
+Em verde, limite de
+desaceleração para o
+tacógrafo. Valor em m/s2,
+de 0 até 255.
+35
+
+Limite de aceleração e
+desaceleração do acelerômetro
+para o tacógrafo
+
+“35;120;120;3;”
+
+Em azul, regra para o
+envio da mensagem de
+tacógrafo.
+Se bit 0 em 1 = enviar a
+mensagem quando houver
+uma aceleração.
+Se bit 1 em 1 = enviar a
+mensagem quando houver
+uma desaceleração.
+Em vermelho, regras para
+o tratamento do jammer:
+Se bit 0 em 1 = bloquear
+veículo.
+Se bit 1 em 1 = ligar
+sirene.
+Se bit 2 em 1 = ligar piscar
+alerta.
+
+36
+
+Regra de atuação da detecção
+de jammer
+
+“36;1;60;3600;”
+
+Se bit 3 em 1 = enviar
+mensagem para o
+servidor.
+Se bit 4 em 1 = habilita o
+tempo para atuar.
+Se bit 5 em 1 = habilita o
+tempo para desbloquear.
+Em verde, tempo para
+atuação do jammer, em
+segundos (1 até 65535).
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+108
+
+Protocolo de Comunicação
+Em azul, tempo para
+desbloquear após a
+atuação do jammer, em
+segundos (1 até 65535).
+Em vermelho, tipo do
+atuador 1.
+Em verde, tipo do atuador
+2.
+Em azul, tipo do atuador
+3.
+Tipos de atuadores:
+
+37
+
+Configuração dos tipos dos
+atuadores do rastreador
+
+38
+
+Não usado
+
+“37;1;2;3;”
+
+Se 0 = bloqueador
+Se 1 = sirene
+Se 2 = pisca alerta
+Se 3 = trava baú um
+Se 4 = comum
+Se 5 = trava baú dois
+Se 6 = trava baú três
+Se 7 = led status
+Se 8 = temperatura
+Se 9 = modo avião
+Se 10 = controle de diesel
+Se 11 = acelerômetro
+Se 12 = graneleiro
+Se 13 = modo monitor
+Se 14 = rele
+Se 15 = status carregador
+Se 16 = tipo buzzer
+
+Em vermelho, limite para a
+aceleração brusca. Valor
+de 1 até 255.
+
+39
+
+Configuração da aceleração e
+freada brusca
+
+“39;32;32;0;3;”
+
+Em verde, limite para a
+freada brusca. Valor de 1
+até 255.
+Em azul, regras:
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+109
+
+Protocolo de Comunicação
+
+Se bit 0 em 1 = Ativar
+atuador quando ocorrer
+uma aceleração brusca
+Se bit 1 em 1 = Ativar
+atuador quando ocorrer
+uma freada brusca
+Se bit 2 em 1 = Polaridade
+do atuador em: Ligar em
+terra / Desligar flutuante
+Se bit 2 em 0 = Polaridade
+do atuador em: Ligar em
+flutuante / Desligar terra
+Em cinza, tempo de
+ativação do atuador. Em
+segundos, valor de 1 até
+255.
+Em vermelho, quantidade
+de pulsos por volta (de 1
+até 65535)
+Em verde, fator
+multiplicativo (de 1 até
+65535)
+Formula utilizada pelo
+rastreador para calcular o
+valor do RPM:
+40
+
+Quantidade de pulsos por volta
+do sensor de RPM
+
+“40;5;2;”
+
+RPM = ((Pulsos / P1) * 60)
+* P2;
+Sendo:
+Pulsos = total de pulsos
+lidos durante 1 segundo
+P1 = parâmetro 1,
+quantidade de pulsos por
+volta
+P2 = parâmetro 2, fator
+multiplicativo
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+110
+
+Protocolo de Comunicação
+
+Em vermelho, regras para
+o bloqueio automático:
+Se bit 0 em 1 = bloquear
+após ignição desligada.
+
+41
+
+Configuração do bloqueio
+automático
+
+Se bit 1 em 1 = bloquear
+após a abertura da porta
+de baú.
+“41;1;15;”
+Se bit 2 em 1 = bloquear
+após ignição desligada ou
+após a abertura da porta
+de baú.
+Em verde, tempo para o
+bloqueio automático, valor
+de 15 até 65535
+segundos.
+
+42
+
+Não usado
+
+-
+
+43
+
+Não usado
+
+Em vermelho, se valor
+igual a 85 habilita o alerta
+de velocidade, qualquer
+outro valor desabilita
+Em verde, valor da
+velocidade máxima (em
+Km/h – de 1 até 255)
+
+44
+
+Configuração do alerta de
+velocidade
+
+“44;85;90;20;20;
+1;30;30;”
+
+Em azul, valor da
+porcentagem acima da
+velocidade máxima (de 0
+até 100 %)
+Em cinza, valor da
+porcentagem acima
+quando o sensor de chuva
+estiver violado (de 0 até
+100%)
+Em laranja, regras do
+alerta de velocidade:
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+111
+
+Protocolo de Comunicação
+
+Se bit 0 em 1 = enviar
+mensagem para o sistema
+Se bit 1 em 1 = acionar
+sirene
+Em roxo, valor do
+debounce para detectar
+velocidade máxima (em
+segundos, de 1 até 255)
+Em vermelho escuro, valor
+do debounce para
+detectar velocidade
+máxima + porcentagem
+(em segundos, de 1 até
+255)
+45
+
+Não usado
+
+Em vermelho, regras para
+o ID de motorista
+Se bit 0 em 1 = efetuar um
+bip na sirene quando o
+bloqueio do veículo pelo
+ID de motorista
+
+46
+
+Configuração da regra geral do
+id de motorista
+
+Se bit 1 em 1 = efetuar
+dois bips na sirene
+quando reconhecer um ID
+de motorista
+
+“46;9;”
+
+Se bit 2 em 1 = efetuar um
+bip na sirene quando não
+reconhecer um ID de
+motorista
+Se bit 3 em 1 = enviar o
+número do último ID de
+motorista em cada
+mensagem de tracking e
+tracking em sleep
+
+47
+
+Configuração do tratamento da
+antena GPS externa
+
+“47;165;5;”
+
+Data
+
+Em vermelho, se valor
+igual a 165 habilita o
+tratamento da antena GPS
+externa, qualquer outro
+valor, desabilita.
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+112
+
+Protocolo de Comunicação
+
+Em verde, tempo de
+debounce para detectar
+perda ou conexão da
+antena. Valor em
+segundos, de 5 até 255.
+48
+
+Não usado
+
+-
+
+49
+
+Não usado
+
+-
+
+50
+
+Não usado
+
+-
+
+51
+
+52
+
+Configuração do envio dos
+dados das ERB´s do modem
+
+Configuração de atualização
+dos números IP's por DNS
+
+“51;200;”
+
+Em vermelho,
+configuração para envio
+dos dados de ERB em
+cada mensagem de
+tracking e tracking em
+sleep. Se valor igual a 200
+habilita, qualquer outro
+valor desabilita.
+Em vermelho, se valor for
+igual a 90 habilita a
+atualização dos números
+IP’s do rastreador pelo
+DNS a cada intervalo
+
+“52;90;7200;”
+Em verde, valor do
+intervalo para verificar o
+DNS (em segundos, e
+mínimo de 3600 e máximo
+de 2592000)
+Em vermelho, se valor
+igual a 58 habilitada a
+função, qualquer outro
+valor desabilita.
+
+53
+
+Configuração da regra de
+velocidade e tempo do
+bloqueador
+
+“53;58;5;5;”
+
+Data
+
+Em verde, valor da
+velocidade. Em Km/h, de
+1 até 255.
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+113
+
+Protocolo de Comunicação
+
+Em verde, valor do tempo
+para detectar a velocidade
+acima do configurado. Em
+segundos, de 1 até 255.
+
+54
+
+Configuração do monitoramento
+da perda bateria externa do
+veiculo
+
+“54;90;”
+
+Em vermelho, se valor
+igual a 90, habilita a
+função para monitorar a
+perda da bateria externa
+(veículo).
+Qualquer outro valor,
+desabilita a função.
+
+55
+
+Não usado
+
+Em vermelho, se valor
+igual a 243, habilita a
+função de horímetro pelo
+RPM. Qualquer outro
+valor, desabilita a função.
+Em verde, valor do
+debounce para iniciar o
+horímetro pelo RPM. Valor
+em segundos, de 0 até
+255.
+
+56
+
+Configuração do horímetro por
+RPM
+
+“56;243;5;5;90;1000;”
+
+Em azul, valor do
+debounce para parar o
+horímetro pelo RPM. Valor
+em segundos, de 0 até
+255.
+Em cinza, se valor igual a
+90, habilita a função de
+limite mínimo para contar
+o horímetro.
+Em laranja, valor do RPM
+mínimo. Valor de 1 até
+65535.
+
+57
+
+Configuração do envio da
+mensagem de tracking pelo
+angulo do GPS
+
+“57;75;90;5;3;”
+
+Data
+
+Em vermelho, se valor
+igual a 75, habilita o envio
+da mensagem de tracking
+pela variação do ângulo
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+114
+
+Protocolo de Comunicação
+do GPS. Qualquer outro
+valor, desabilita a função.
+Em verde, valor variação
+do ângulo do GPS. Em
+graus, mínimo de 5 e
+máximo de 180.
+Em azul, tempo de espera
+para enviar outra
+mensagem. Em segundos,
+de 1 até 255.
+Em cinza, quantidade de
+leituras para validar
+alteração do ângulo do
+GPS. Valor de 1 até 255.
+Em vermelho, se valor
+igual a 243, habilita a
+função de excesso de
+RPM. Qualquer outro
+valor, desabilita.
+Em verde, tempo mínimo
+para detectar excesso de
+RPM. Valor de 10 até
+65535 segundos.
+58
+
+Configuração do excesso do
+RPM
+
+Em azul, valor do excesso
+de RPM. Valor de 500 até
+65535 RPM.
+
+“58;243;30;5000;0;”
+
+Em cinza, regra do
+excesso:
+Se bit 0 em 1 = Ligar
+sirene ao detectar
+excesso de RPM.
+Se bit 1 em 1 = Bip sirene
+a cada 1 segundo ao
+detectar excesso de RPM.
+
+59
+
+Configuração do DNS 1
+
+“59;22;
+locaweb01.dynalias.net;”
+
+Em vermelho, tamanho do
+nome do DNS, de 1 até 50
+caracteres.
+Em verde, nome do DNS
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+115
+
+Protocolo de Comunicação
+
+60
+
+Configuração do DNS 2
+
+“60;22;
+locaweb02.dynalias.net;”
+
+Formato igual ao comando
+59
+
+61
+
+Configuração do DNS 3
+
+“61;22;
+locaweb03.dynalias.net;”
+
+Formato igual ao comando
+59
+
+62
+
+Configuração do DNS 4
+
+“62;22;
+locaweb04.dynalias.net;”
+
+Formato igual ao comando
+59
+
+63
+
+Não usado
+
+-
+
+64
+
+Não usado
+
+-
+
+65
+
+Não usado
+
+-
+
+66
+
+Não usado
+
+-
+
+67
+
+Não usado
+
+-
+
+68
+
+Não usado
+
+-
+
+69
+
+Configuração do timeout da
+perda do ID de carreta
+
+70
+
+Não usado
+
+-
+
+71
+
+Não usado
+
+-
+
+72
+
+Não usado
+
+-
+
+“69;15;”
+
+Data
+
+Em vermelho, timeout
+para perda do ID de
+carreta. Valor em
+segundos, de 1 até 255.
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+116
+
+Protocolo de Comunicação
+
+73
+
+Não usado
+
+Em vermelho, número das
+operadoras:
+Operadoras do Brasil:
+
+74
+
+Operadora a ser utilizada para o
+simcard 2 (se o modelo do
+rastreador suportar)
+
+“74;número operadora;”
+
+Valor 0 = Tim
+Valor 1 = Claro
+Valor 2 = Oi
+Valor 3 = Vivo
+Valor 4 = Amazônia
+Telecom
+Valor 5 = Br Telecom
+Valor 6 = Telemig
+Valor 7 = Sercomtel
+Valor 8 = Ctbc Celular
+Em vermelho,
+
+“75;0;”
+75
+
+APN a ser utilizada para o
+simcard 2 (se o modelo do
+rastreador suportar)
+
+Se valor = 0, usar a apn
+padrão.
+
+ou
+Se valor = 1, usar a apn
+configurável primeiro e
+depois a apn padrão (se
+não conseguir conexão)
+
+“75;1;”
+
+76
+
+Não usado
+
+-
+
+77
+
+Não usado
+
+-
+
+78
+
+Não usado
+
+-
+
+79
+
+Não usado
+
+-
+
+80
+
+Não usado
+
+-
+
+81
+
+Não usado
+
+-
+
+82
+
+Não usado
+
+-
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+117
+
+Protocolo de Comunicação
+
+Em vermelho, regras para
+quando o rastreador
+estiver fora do ponto de
+controle
+Se bit 5 em 1 = enviar
+mensagem para o sistema
+quando ocorrer uma
+detecção de velocidade
+máxima
+Se bit 4 em 1 = fechar baú
+fora do ponto de controle
+(quando o veículo parar e
+desligar a ignição e
+precisa estar corretamente
+configurado o atuador
+como trava de baú)
+
+83
+
+Regras para quando estiver fora
+de qualquer ponto de controle
+
+“83;0;80;10;”
+
+Se bit 3 em 1 = abrir baú
+fora do ponto de controle
+(quando o veículo parar e
+desligar a ignição e
+precisa estar corretamente
+configurado o atuador
+como trava de baú)
+Se bit 2 não usado
+Se bit 1 não usado
+Se bit 0 em 1 = monitorar
+velocidade máxima com
+bip na sirene
+Em verde, velocidade
+máxima quando o
+rastreador estiver fora do
+ponto de controle (em
+Km/h, de 1 até 255)
+Em azul, tempo para
+detectar quando estiver
+fora do ponto de controle
+(em segundos, de 0 até
+255)
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+118
+
+Protocolo de Comunicação
+
+Atenção, para que as
+regras funcionem, é
+preciso que esteja ao
+menos um ponto de
+controle configurado.
+84
+
+Não usado
+
+-
+
+85
+
+Não usado
+
+-
+
+86
+
+Não usado
+
+-
+
+87
+
+Não usado
+
+-
+
+88
+
+Não usado
+
+-
+
+89
+
+Não usado
+
+-
+
+90
+
+Não usado
+
+-
+
+91
+
+Não usado
+
+-
+
+92
+
+Não usado
+
+-
+
+93
+
+Não usado
+
+-
+
+94
+
+Não usado
+
+-
+
+95
+
+Configuração da banguela do
+RPM
+
+“95;243;15;1000;5;”
+
+Em vermelho, se valor
+igual a 243, habilita a
+função de banguela do
+RPM. Qualquer outro
+valor, desabilita.
+Em verde, valor da
+velocidade do GPS. Valor
+de 1 até 255 Km/h.
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+119
+
+Protocolo de Comunicação
+Em azul, valor do RPM.
+Valor de 1 até 65535
+RPM.
+Em cinza, valor do tempo.
+Em segundos - valor de 1
+até 65535.
+Em vermelho, valor da
+velocidade do GPS. Valor
+de 1 até 255 Km/h.
+Em verde, valor do tempo.
+Em segundos - valor de 1
+até 65535.
+96
+
+Configuração do motor ocioso
+
+“96;3;60;500;0;”
+
+Em azul, valor do RPM.
+Valor de 1 até 65535
+RPM.
+Em cinza, se valor igual a
+127, a função não irá usar
+o sensor de RPM.
+Qualquer outro valor, a
+função irá usar o sensor
+de RPM.
+
+97
+
+Configuração do nível para a
+detecção do jammer
+
+“97;20;”
+
+Em vermelho, nível para
+detecção da ação do
+jammer (valor de 1 até 31)
+
+Para o modelo RST-VT-EVO
+98
+
+Não usado
+
+-
+
+99
+
+Não usado
+
+-
+
+100
+
+Não usado
+
+-
+
+101
+
+Não usado
+
+-
+
+102
+
+Não usado
+
+-
+
+103
+
+Não usado
+
+-
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+120
+
+Protocolo de Comunicação
+
+104
+
+Não usado
+
+Em vermelho, se valor for
+igual a 90 habilita o
+controle da ignição pelo
+nível de tensão da bateria
+externa
+
+105
+
+106
+
+Controle da ignição pela tensão
+da bateria externa
+
+Configuração de calibração do
+sensor de hodômetro
+
+“105;90;1269;”
+
+“106;5;”
+
+Em verde, valor da tensão
+para detectar se ignição
+ligada ou desligada, valor
+x 100 (exemplo: para
+12,69V deverá mandar
+1269)
+Em vermelho, valor da
+nova calibração do sensor
+de hodômetro. Esse valor
+será a quantidade de
+pulsos por quilometro
+percorrido. Valor de 1 até
+65535.
+Normalmente não é
+necessário fazer tal
+calibração, o firmware do
+rastreador executa essa
+calibração
+automaticamente.
+
+107
+
+Não usado
+
+-
+
+108
+
+Não usado
+
+-
+
+109
+
+Não usado
+
+-
+
+Configuração do nível para a
+detecção do jammer
+110
+
+“110;17;5;”
+Para os modelos RST-VTv2,
+RST-LCv2, RST-MINI
+
+Em vermelho, valor da
+configuração “Mnl Level”
+para detecção da ação do
+jammer (valor de 0 até 31)
+Em verde, valor da
+configuração “Minch
+Level” para detecção da
+ação do jammer (valor de
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+121
+
+Protocolo de Comunicação
+0 até 254)
+111
+
+Não usado
+
+-
+
+112
+
+Não usado
+
+-
+
+113
+
+Não usado
+
+-
+
+114
+
+Não usado
+
+-
+
+115
+
+Não usado
+
+-
+
+116
+
+Não usado
+
+-
+
+117
+
+Não usado
+
+-
+
+118
+
+Não usado
+
+-
+
+119
+
+Não usado
+
+-
+
+120
+
+Não usado
+
+-
+
+121
+
+Não usado
+
+-
+
+122
+
+Não usado
+
+-
+
+123
+
+Não usado
+
+-
+
+124
+
+Configuração do ganho do
+microfone do modem
+
+“124;91;5;10;”
+
+Data
+
+Em vermelho, se valor for
+igual a 91 habilita o
+tratamento das chamadas
+de voz, qualquer outro
+valor desabilita
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+122
+
+Protocolo de Comunicação
+
+Em verde, ganho do
+microfone.
+Para o modelo:
+RST-VT PLUS
+Valor de 1 até 7
+RST-VT EVO
+Valor de 1 até 18
+RST-VTv2
+Valor de 1 até 15
+Em azul, tempo de
+duração da chamada de
+voz (em segundos, de 1
+até 65535)
+125
+
+Não usado
+
+-
+
+126
+
+Não usado
+
+-
+
+127
+
+Não usado
+
+Em vermelho, se valor for
+igual a 90 habilita a
+função. Qualquer outro
+valor, desabilita.
+Em verde, valor da
+velocidade do GPS. De 0
+até 255 Km/h.
+
+128
+
+Configuração para o bloqueio
+temporário pelo rpm
+
+“128;90;5;10;30;500;100
+0;”
+
+Em azul, tempo do
+bloqueio ativo. Em
+segundos, de 0 até 255.
+Em cinza, tempo de
+debounce. Em segundos,
+de 0 até 65535.
+Em laranja, valor do RPM
+mínimo. De 0 até 65535.
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+123
+
+Protocolo de Comunicação
+
+Em roxo, valor do RPM
+máximo. De 0 até 65535.
+129
+
+Não usado
+
+-
+
+130
+
+Não usado
+
+-
+
+131
+
+Não usado
+
+-
+
+132
+
+Não usado
+
+-
+
+133
+
+Não usado
+
+-
+
+134
+
+Não usado
+
+-
+
+135
+
+Não usado
+
+-
+
+136
+
+Não usado
+
+-
+
+137
+
+Não usado
+
+-
+
+138
+
+Não usado
+
+-
+
+139
+
+Não usado
+
+-
+
+140
+
+Não usado
+
+-
+
+141
+
+Não usado
+
+-
+
+142
+
+Não usado
+
+-
+
+143
+
+Não usado
+
+-
+
+144
+
+-
+
+Não usado
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+124
+
+Protocolo de Comunicação
+
+145
+
+Não usado
+
+-
+
+146
+
+Não usado
+
+-
+
+147
+
+Não usado
+
+Em vermelho,
+configuração do modo
+sleep do GPS durante o
+modo sleep do rastreador:
+Se valor igual a 161,
+modulo GPS ficará
+sempre ligado.
+
+148
+
+Configuração do modo sleep do
+modulo GPS
+
+“148;0;”
+
+Se valor igual a 183,
+modulo GPS ficará
+desligado por 3 horas e
+será ligado por 10
+minutos.
+Qualquer outro valor,
+modulo GPS ficará
+sempre desligado.
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+125
+
+Protocolo de Comunicação
+
+6.20 MENSAGEM ID: 178 – ATUAÇÃO
+Essa mensagem faz com que o rastreador execute uma atuação conforme o número recebido,
+ver tabela abaixo para os tipos de atuação disponíveis. Observação, o rastreador só executa uma
+única atuação por mensagem. Para esta mensagem o rastreador deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 178
+
+Valor
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+
+Descrição
+Liga a sirene
+Liga a sirene por um minuto
+Desliga a sirene
+Liga o pisca-alerta
+Desliga o pisca-alerta
+Abre a trava de baú um
+Fecha a trava de baú um
+Lacra o sensor de painel
+Deslacra o sensor de painel
+Lacra o sensor de teclado
+Deslacra o sensor de teclado
+Lacra a porta de motorista
+Deslacra a porta de motorista
+Lacra a porta de carona
+Deslacra a porta de carona
+Lacra a porta de baú
+Deslacra a porta de baú
+Lacra a carreta
+Deslacra a carreta
+Reinicia o valor da distância medida pelo sensor de hodômetro
+Reinicia a calibração do sensor de hodômetro
+Reinicia o valor medido pelo sensor de combustível
+Reinicia o hodômetro pelo GPS
+Habilita o led de status
+Desabilita o led de status
+Apaga todo o log de mensagem
+Apaga todos os alvos cadastrados
+Apaga a tabela em RAM dos sensores de temperatura
+Habilita o teclado Multi-Portal
+Desabilita o teclado Multi-Portal
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+126
+
+Protocolo de Comunicação
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65 a 255
+
+Não usado
+Apaga todos os ID's de motoristas cadastrados
+Apaga todos os pontos de controle cadastrados
+Executa o lacre de todos os sensores (painel, teclado, porta motorista,
+porta carona, porta baú e carreta)
+Executa o deslacre de todos os sensores (painel, teclado, porta
+motorista, porta carona, porta baú e carreta)
+Reinicia o hodômetro inicial do veiculo
+Apaga todas as configurações de temperatura
+Apaga todas as cercas eletrônicas cadastradas
+Apaga todos os ID's de carreta cadastrados
+Abre a trava de baú dois
+Fecha a trava de baú dois
+Abre a trava de baú três
+Fecha a trava de baú três
+Força o envio de uma mensagem de tracking via GPRS
+Força o envio de uma mensagem de tracking via satélite
+Apaga todos os alvos da betoneira
+Reinicia o tempo total do horímetro pelo RPM
+Não usado
+Não usado
+Apaga todas as mensagens de texto recebidas do teclado
+Ativa o atuador comum 1 do teclado
+Desativa o atuador comum 1 do teclado
+Ativa o atuador comum 2 do teclado
+Desativa o atuador comum 2 do teclado
+Ativa o atuador comum 3 do teclado
+Desativa o atuador comum 3 do teclado
+Ativa o atuador comum 4 do teclado
+Desativa o atuador comum 4 do teclado
+Apaga todos os ID's do controle de diesel
+Apaga todos os alvos voláteis da betoneira
+Apaga todos os ID's de sleep
+Apaga todos os alvos de abastecimento da betoneira
+Apaga todos os dados de abastecimento do diesel
+Limpa todos os contadores de tempo do ID de carreta
+Não usado
+
+Exemplo:
+Para ligar a sirene por um minuto: “RST;A;RST-LC;V4.14;014030001;1;178;2;FIM;”
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+127
+
+Protocolo de Comunicação
+
+6.21 MENSAGEM ID: 182 – CONFIGURA PONTO DE CONTROLE
+Esta mensagem configura um ponto de controle no rastreador. Para esta mensagem o
+rastreador deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 182
+
+nº
+
+Informação
+
+1
+
+Número do ponto de controle
+
+Descrição
+Número do ponto de controle
+Valor de 1 até 200
+
+2
+
+Latitude
+
+Latitude do ponto de controle
+Formato ponto flutuante
+
+3
+
+Longitude
+
+Longitude do ponto de controle
+Formato ponto flutuante
+Regra do ponto de controle, sendo que:
+Se bit 7 em 1 = sempre zero
+Se bit 6 em 1 = sempre zero
+Se bit 5 em 1 = envia uma mensagem para
+o sistema de alerta de velocidade atual
+acima do limite configurado dentro do ponto
+de controle
+Se bit 4 em 1 = executa o fechamento da
+trava de baú dentro do ponto de controle
+(não deve estar habilita a regra da abertura
+do baú)
+
+4
+
+Regra
+Se bit 3 em 1 = executa a abertura da trava
+de baú dentro do ponto de controle, se
+estiver com a ignição desligada
+Se bit 2 em 1 = desliga a sirene se estiver
+dentro do ponto de controle (a regra do bip
+ou de ligar a sirene não devem estar
+habilitadas)
+Se bit 1 em 1 = liga a sirene se estiver
+dentro do ponto de controle (a regra do bip
+não deve estar habilitada)
+Se bit 0 em 1 = executa um bip na sirene,
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+128
+
+Protocolo de Comunicação
+se a velocidade atual estiver acima do limite
+configurado
+Tolerância em metros do ponto de controle
+5
+
+Tolerância
+
+De 1 até 65535 metros
+Velocidade máxima dentro do ponto de
+controle
+
+6
+
+Velocidade máxima
+De 1 até 255 Km/h
+
+7
+
+Debounce
+
+Valor do tempo de debounce usado para
+detectar que o rastreador está dentro do
+ponto de controle
+De 0 até 255 segundos
+
+Exemplo:
+RST;A;RST-LC;V4.14;014030001;1;182;1;-23.123456;-46.123456;32;500;100;30;FIM;
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+129
+
+Protocolo de Comunicação
+
+6.22 MENSAGEM ID: 184 – CONFIGURA ALERTA DE TEMPERATURA
+Esta mensagem configura um alerta de temperatura. Para esta mensagem o rastreador deverá
+responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 184
+
+nº
+1
+
+Informação
+Número do alerta
+
+Descrição
+Número do alerta de temperatura
+Valor de 1 até 10
+Número do ID único do sensor de
+temperatura
+
+2
+
+Número do ID
+
+Valor em hexadecimal, separados com ‘ : ’
+(dois pontos)
+02:2A:5F:0E:01:8D;
+Valor da configuração da temperatura
+mínima
+
+3
+
+Temperatura mínima
+Valor de +125 até -55 graus
+Valor da configuração da temperatura
+máxima
+
+4
+
+Temperatura máxima
+Valor de +125 até -55 graus
+Número do atuador do rastreador para
+ativação quando houver uma violação.
+
+5
+
+Número atuador
+
+Se 1 = atuador 1
+Se 2 = atuador 2
+Se 3 = atuador 3
+Observação: para o correto funcionamento,
+o atuador deverá ser configurado como
+“temperatura (valor 8)”.
+Regras:
+
+6
+
+Regras
+
+Se bit 7 em 1 = sempre zero
+Se bit 6 em 1 = sempre zero
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+130
+
+Protocolo de Comunicação
+Se bit 5 em 1 = desligar atuador quando
+houver a temperatura estiver na faixa
+normal de temperatura (entre a mínima e
+máxima)
+Se bit 4 em 1 = ligar atuador quando houver
+a temperatura estiver na faixa normal de
+temperatura (entre a mínima e máxima)
+Se bit 3 em 1 = desligar atuador quando
+houver uma violação da temperatura
+mínima
+Se bit 2 em 1 = ligar atuador quando houver
+uma violação da temperatura mínima
+Se bit 1 em 1 = desligar atuador quando
+houver uma violação da temperatura
+máxima
+Se bit 0 em 1 = ligar atuador quando houver
+uma violação da temperatura máxima
+Tempo de debounce para detectar violação
+da temperatura mínima, em segundos
+7
+
+Debounce temperatura mínima
+Valor de 1 até 65535
+Tempo de debounce para detectar restaure
+da temperatura mínima, em segundos
+
+8
+
+Debounce temperatura máxima
+Valor de 1 até 65535
+Tempo de debounce para detectar violação
+da temperatura máxima, em segundos
+
+9
+
+Debounce restaure mínima
+Valor de 1 até 65535
+Tempo de debounce para detectar restaure
+da temperatura máxima, em segundos
+
+10
+
+Debounce restaure máxima
+Valor de 1 até 65535
+
+Exemplo:
+RST;A;RST-LC;V4.14;014030001;1;184;1;02:2A:5F:0E:01:8D;-5;30;1;0;10;10;20;20;FIM;
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+131
+
+Protocolo de Comunicação
+
+6.23 MENSAGEM ID: 186 – CONFIGURA ID DE MOTORISTA
+Esta mensagem cadastra, solicita ou apaga um ID de motorista. Para esta mensagem o
+rastreador deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 186
+Para ler um ID:
+
+nº
+1
+
+Informação
+
+Descrição
+Valor fixo em 1
+
+Comando
+
+Número do ID que está na memória do
+rastreador
+2
+
+Número do ID
+Valor de 1 até 1024
+
+Para incluir um novo ID:
+
+nº
+1
+
+Informação
+Comando
+
+Descrição
+Valor fixo em 2
+Número do ID único do sensor
+
+2
+
+Número do ID
+
+Valor em hexadecimal, separados com ‘ : ’
+(dois pontos)
+00:5A:1A:01:02:7D;
+
+3
+
+Regras
+
+Se bit 7 sempre zero (não usado)
+Se bit 6 sempre zero (não usado)
+Se bit 5 em 1 = ativa modo graneleiro
+Se bit 4 em 1 = colocar em modo parado
+Se bit 3 em 1 = colocar em modo viagem
+Se bit 2 sempre zero (não usado)
+Se bit 1 em 1 = desbloquear
+Se bit 0 em 1 = bloquear
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+132
+
+Protocolo de Comunicação
+Para apagar um ID pela posição na memória do rastreador:
+
+nº
+1
+
+Informação
+
+Descrição
+Valor fixo em 3
+
+Comando
+
+Número do ID que está na memória do
+rastreador
+2
+
+Número do ID
+Valor de 1 até 1024
+
+Para solicitar o envio de todos os ID’s que estão gravados na memória do rastreador:
+
+nº
+1
+
+Informação
+
+Descrição
+Valor fixo em 4
+
+Comando
+
+Para apagar todos os ID’s que estão gravados na memória do rastreador:
+
+nº
+1
+
+Informação
+
+Descrição
+Valor fixo em 5
+
+Comando
+
+Para apagar um ID pelo seu número único:
+
+nº
+1
+
+Informação
+Comando
+
+Descrição
+Valor fixo em 6
+Número do ID único do sensor
+
+2
+
+Número do ID
+
+Valor em hexadecimal, separados com ‘ : ’
+(dois pontos)
+00:5A:1A:01:02:7D;
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+133
+
+Protocolo de Comunicação
+
+6.24 MENSAGEM ID: 188 – CONFIGURA ID DE CARRETA
+Esta mensagem cadastra, solicita ou apaga um ID de carreta. Para esta mensagem o
+rastreador deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 188
+Para ler um ID:
+
+nº
+1
+
+Informação
+
+Descrição
+Valor fixo em 1
+
+Comando
+
+Número do ID que está na memória do
+rastreador
+2
+
+Número do ID
+Valor de 1 até 128
+
+Para incluir um novo ID:
+
+nº
+1
+
+Informação
+Comando
+
+Descrição
+Valor fixo em 2
+Número do ID único do sensor
+
+2
+
+Número do ID
+
+Valor em hexadecimal, separados com ‘ : ’
+(dois pontos)
+00:5A:1A:01:02:7D;
+
+3
+
+Regras
+
+Se valor 1, habilita a regra para contar o
+tempo do ID conectado (até 10 ID’s
+máximo)
+Se valor 0, desabilita a regra
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+134
+
+Protocolo de Comunicação
+Para apagar um ID pela posição na memória do rastreador:
+
+nº
+1
+
+Informação
+
+Descrição
+Valor fixo em 3
+
+Comando
+
+Número do ID que está na memória do
+rastreador
+2
+
+Número do ID
+Valor de 1 até 128
+
+Para solicitar o envio de todos os ID’s que estão gravados na memória do rastreador:
+
+nº
+1
+
+Informação
+
+Descrição
+Valor fixo em 4
+
+Comando
+
+Para apagar todos os ID’s que estão gravados na memória do rastreador:
+
+nº
+1
+
+Informação
+
+Descrição
+Valor fixo em 5
+
+Comando
+
+Para apagar um ID pelo seu número único:
+
+nº
+1
+
+Informação
+Comando
+
+Descrição
+Valor fixo em 6
+Número do ID único do sensor
+
+2
+
+Número do ID
+
+Valor em hexadecimal, separados com ‘ : ’
+(dois pontos)
+00:5A:1A:01:02:7D;
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+135
+
+Protocolo de Comunicação
+
+6.25 MENSAGEM ID: 192 – CONFIGURA ID DE SLEEP
+Esta mensagem cadastra, solicita ou apaga um ID de sleep. Para esta mensagem o rastreador
+deverá responder ACK ou NACK.
+Segue abaixo o formato da mensagem:
+ID da mensagem: 192
+
+Para ler um ID:
+
+nº
+1
+
+Informação
+
+Descrição
+Valor fixo em 1
+
+Comando
+
+Número do ID que está na memória do
+rastreador
+2
+
+Número do ID
+Valor de 1 até 32
+
+Para incluir um novo ID:
+
+nº
+1
+
+Informação
+Comando
+
+Descrição
+Valor fixo em 2
+Número do ID único do sensor
+
+2
+
+Número do ID
+
+Valor em hexadecimal, separados com ‘ : ’
+(dois pontos)
+00:5A:1A:01:02:7D;
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+136
+
+Protocolo de Comunicação
+Para apagar um ID pela posição na memória do rastreador:
+
+nº
+1
+
+Informação
+
+Descrição
+Valor fixo em 3
+
+Comando
+
+Número do ID que está na memória do
+rastreador
+2
+
+Número do ID
+Valor de 1 até 32
+
+Para apagar todos os ID’s que estão gravados na memória do rastreador:
+
+nº
+1
+
+Informação
+
+Descrição
+Valor fixo em 5
+
+Comando
+
+Para apagar um ID pelo seu número único:
+
+nº
+1
+
+Informação
+Comando
+
+Descrição
+Valor fixo em 6
+Número do ID único do sensor
+
+2
+
+Número do ID
+
+Valor em hexadecimal, separados com ‘ : ’
+(dois pontos)
+00:5A:1A:01:02:7D;
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+137
+
+Protocolo de Comunicação
+
+7 DESCRIÇÃO DO FORMATO REDUZIDO
+A fim de reduzir o consumo de dados, há uma opção para habilitar o formato do tracking
+padrão. Esta versão reduzida, retira algumas informações em relação ao formato padrão. Reduzindo
+assim a quantidade de caracteres enviados para o servidor.
+O formato do header não tem nenhuma mudança.
+
+Segue abaixo o formato da mensagem:
+
+nº
+
+Informação
+
+1
+
+Timestamp do evento
+
+Descrição
+Data e hora de quando o evento foi gerado
+(relógio interno do rastreador)
+Formato: DD-MM-AAAA HH:MM:SS
+Ex.: 15-05-2015 10:48:22
+Data e hora da última posição válida do
+GPS
+
+2
+
+Timestamp do GPS
+
+Formato: DD-MM-AAAA HH:MM:SS
+Ex.: 15-05-2015 10:48:22
+Latitude do GPS da última posição válida
+
+3
+
+Latitude do GPS
+
+Formato: em graus decimais
+Ex.: -23.495054
+Longitude do GPS da última posição válida
+
+4
+
+5
+
+Longitude do GPS
+
+Velocidade atual do GPS
+
+Formato: em graus decimais
+Ex.: -46.876480
+Velocidade do GPS da última posição
+válida
+(Km/h)
+Ex.: 1 Km/h
+Ângulo de direção do GPS da última
+posição válida – valor de 0 até 360 graus.
+
+6
+
+Direção do GPS
+Ex.: 125 graus
+
+7
+
+Altitude do GPS
+
+Altitude da antena de GPS (metros)
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+138
+
+Protocolo de Comunicação
+
+Ex.: 774 metros
+
+8
+
+Validade do GPS
+
+Indica a válida do GPS, sendo que valor:
+1 = posição válida
+0 = posição inválida
+Ex.: 1 (GPS válido)
+Número de satélites da última posição
+válida.
+
+9
+
+Número de satélites do GPS
+Ex.: 4 (número de satélites)
+Status dos sensores do rastreador (parte 1),
+valor em hexadecimal.
+Os sensores do rastreador em dois bits.
+00 = Desabilitado
+01 = Ativado (violado)
+10 = Desativado (restaurado)
+11 = Cortado ou erro
+Status dos sensores 1 - MSB:
+
+11
+
+Status dos sensores do
+rastreador 1
+
+Bit 0 - Status do sensor 1
+Bit 1 - Status do sensor 1
+Bit 2 - Status do sensor 2
+Bit 3 - Status do sensor 2
+Bit 4 - Status do sensor 3
+Bit 5 - Status do sensor 3
+Bit 6 - Status do sensor 4
+Bit 7 - Status do sensor 4
+Ex.: 0x00
+Status dos sensores do rastreador (parte 2),
+valor em hexadecimal.
+Status dos sensores 2 - LSB:
+
+12
+
+Status dos sensores do
+rastreador 2
+
+Bit 0 - Status do sensor 5
+Bit 1 - Status do sensor 5
+Bit 2 - Status do sensor 6
+Bit 3 - Status do sensor 6
+Bit 4 - Status da bateria externa
+(1 = conectada, 0 = desconectada)
+Bit 5 - Status da bateria interna
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+139
+
+Protocolo de Comunicação
+(1 = conectada, 0 = desconectada)
+Bit 6 - Status da antena GPS externa
+(1 = conectada, 0 = desconectada)
+Bit 7 - Status da ignição
+(0 = ignição desligada e 1 = ignição ligada)
+Ex.: 0xF0
+Status dos atuadores 1 do rastreador, valor
+em hexadecimal.
+Bit 0 – Se valor for igual a 1, indica que o
+rastreador está bloqueado
+Bit 1 – Se valor for igual a 1, indica que o
+rastreador esta desbloqueado
+Bit 2 – Se valor for igual a 1, indica que a
+sirene está ligada
+Bit 3 – Se valor for igual a 1, indica que a
+sirene está desligada
+14
+
+Status dos atuadores 1
+
+Bit 4 – Se valor for igual a 1, indica que a
+trava está fechada (quando trava habilitada)
+Bit 5 – Se valor for igual a 1 indica que a
+trava está aberta (quando trava habilitada)
+Bit 6 – Se valor for igual a 1, indica que a
+trava de quinta roda está aberta (quando
+quinta roda habilitada)
+Bit 7 – Se valor for igual a 1, indica que a
+trava de quinta roda está fechada (quando
+quinta roda habilitada)
+Ex.: 0x1A
+Status dos atuadores 2 do rastreador, valor
+em hexadecimal.
+
+15
+
+Status dos atuadores 2
+
+Bit 0 - Se valor for igual a 1, indica que o
+pisca alerta está ligado
+Bit 1 – Se valor for igual a 1, indica que o
+pisca alerta está desligado
+Bit 2 - Para uso futuro (sempre 0)
+Bit 3 - Para uso futuro (sempre 0)
+Bit 4 - Para uso futuro (sempre 0)
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+140
+
+Protocolo de Comunicação
+Bit 5 - Para uso futuro (sempre 0)
+Bit 6 - Para uso futuro (sempre 0)
+Bit 7 - Para uso futuro (sempre 0)
+Ex.: 0x02
+Tensão da bateria externa, veículo, em
+volts.
+16
+
+Tensão da bateria externa
+Ex.: 12.38V
+Tensão da bateria interna, rastreador, em
+volts.
+
+17
+
+Tensão da bateria interna
+Ex.: 4.08V
+Hodômetro do veículo pelo GPS, valor em
+quilômetros
+
+18
+
+Hodômetro do GPS
+Ex.: 3 (km)
+Este valor é compreendido entre 0 (sinal
+fraco) até 31 (sinal forte).
+É possível converter o sinal para barras
+iguais aos dos celulares, para isso,
+converter o valor conforme abaixo:
+
+19
+
+Nível de sinal do modem GSM
+
+Valor de 26 a 31 = 5 barras
+Valor de 20 a 25 = 4 barras
+Valor de 14 a 19 = 3 barras
+Valor de 8 a 13 = 2 barras
+Valor de 2 a 7 = 1 barra
+Valor de 0 a 1 = 0 barras (sinal muito fraco
+ou sem sinal)
+Ex.: 29
+Para o sensor de temperatura, se o valor
+igual a 0xFF indica sensor desabilitado.
+Valor em hexadecimal.
+
+20
+
+Sensor de temperatura
+
+Se o valor diferente de 0xFF, então o
+sensor de temperatura está habilitado,
+neste caso seguir:
+Bit 0 - Valor temperatura - LSB
+Bit 1 - Valor temperatura
+Bit 2 - Valor temperatura
+Bit 3 - Valor temperatura
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+141
+
+Protocolo de Comunicação
+Bit 4 - Valor temperatura
+Bit 5 - Valor temperatura
+Bit 6 - Valor temperatura - MSB
+Bit 7 - Sinal - se valor igual a 1 indica valor
+negativo, se valor igual a 0 indica valor
+positivo
+Se o valor for igual a 0xFE, indica que o
+sensor de temperatura está com defeito de
+hardware ou não foi instalado nenhum
+sensor de temperatura.
+Ex.: 0xFE
+Formato da mensagem de tracking reduzido
+
+Exemplo de mensagem:
+
+RST;A;RST-LC;V4.14;014030001;9;1;18-05-2015 18:02:08;18-05-2015 18:02:11;-23.495054;46.876480;1;125;774;1;4;00;F0;1A;02;12.38;4.08;3;29;FE;FIM;
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+142
+
+Protocolo de Comunicação
+
+8 DESCRIÇÃO DA ATUALIZAÇÃO REMOTA DO FIRMWARE
+Neste tópico é descrito a forma da atualização remota do firmware do rastreador e o formato do
+arquivo do novo firmware.
+
+8.1 FORMA DE FUNCIONAMENTO DA ATUALIZAÇÃO
+Ao iniciar a atualização remota, o rastreador ficará responsável por solicitar os pacotes,
+verificação de erro dos dados, validação do CRC do firmware novo, backup do firmware atual e reset
+automático para atualização do firmware, sendo que o servidor só será responsável por enviar o
+comando de início de atualização, responder as solicitações com os dados do firmware novo e o
+comando de cancelamento da atualização.
+
+Mensagens do servidor para o rastreador:
+
+
+Mensagem ID 138: Comando para início de atualização de firmware
+
+
+
+Mensagem ID 139: Resposta para o rastreador com os dados do firmware
+
+
+
+Mensagem ID 140: Comando para cancelar a atualização de firmware
+
+Mensagens do rastreador para o servidor:
+
+
+Mensagem ID 18: Solicitação do pacote de dados do firmware
+
+
+
+Mensagem ID 19: Mensagem de status do andamento da atualização de firmware
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+143
+
+Protocolo de Comunicação
+
+8.2 FORMATO DO ARQUIVO
+O formato do arquivo do firmware novo é basicamente um texto, sendo que cada linha desse
+arquivo é um pacote de dados que deve ser enviado ao rastreador conforme a sua solicitação.
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+144
+
+Protocolo de Comunicação
+A primeira linha do arquivo é o comando que deve ser enviado para o rastreador para iniciar a
+atualização remota.
+
+Formato da primeira linha do arquivo:
+“CMD:78;1239;2764;”
+Para enviar o comando para o rastreador, deverá montar a mensagem com o header:
+RST;A;RST-LC;V4.14;014030001;1;138;78;1239;2764;FIM;
+O ID da mensagem para início de atualização é o 138.
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+145
+
+Protocolo de Comunicação
+As demais linhas são os pacotes de dados que devem ser enviados para o rastreador quando
+ele for solicitando.
+
+Exemplo:
+“0001:B0B6CF11C102A6E3DE31CEF93800A62B3B0ECD118200A62B630FCD1180F3A52B5
+B0FCD11C1DAA623F6B6CE19C1DAA623F6B6CE19C8F0A52B130CCD11C1DAA623A70CCD11E
+CF0A52B8D0CCD1124F0A52B2B0CCD118EF0A52BEF0DCD11CAF1A52BA10DCD11F6F1A52B7
+70DCD1142F1A52B7B0DCD113EF1A52B8B0DCD112EF1A52B7F0DCD113AF1A52B830DCD1136
+F1A52B370DCD1182F1A52B3B0DCD1188F1A52B2D0DCD1184F1A52BAB12CD110EEEA52B9F1
+2CD111AEEA52BA312CD1116EEA52BD712CD11E2EEA52B;”
+Em azul: Indica o número do pacote (não pode ser enviado para o rastreador)
+Em vermelho: Dados do firmware novo (só estes dados devem ser enviados para o rastreador)
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+146
+
+Protocolo de Comunicação
+
+8.3 FORMATO DAS MENSAGENS
+Mensagens do servidor para o rastreador:
+
+
+Mensagem ID 138: Comando para início de atualização de firmware
+RST;A;RST-LC;V4.14;014030001;1;138;78;1239;2764;FIM;
+78: Número do ID da nova versão
+1239: Quantidade de pacotes do firmware novo
+2764: Numero de controle
+
+
+
+Mensagem ID 139: Resposta para o rastreador com os dados do firmware
+RST;A;RST-LC;V4.14;014030001;1;139;B0B6CF11C102A6E3DE31CEF93800A62B3B0ECD
+118200A62B630FCD1180F3A52B5B0FCD11C1DAA623F6B6CE19C1DAA623F6B6CE19C8
+F0A52B130CCD11C1DAA623A70CCD11ECF0A52B8D0CCD1124F0A52B2B0CCD118EF0A
+52BEF0DCD11CAF1A52BA10DCD11F6F1A52B770DCD1142F1A52B7B0DCD113EF1A52B
+8B0DCD112EF1A52B7F0DCD113AF1A52B830DCD1136F1A52B370DCD1182F1A52B3B0D
+CD1188F1A52B2D0DCD1184F1A52BAB12CD110EEEA52B9F12CD111AEEA52BA312CD1
+116EEA52BD712CD11E2EEA52B;FIM;
+B0B6CF....: Dados do novo firmware
+
+
+
+Mensagem ID 140: Comando para cancelar a atualização de firmware
+RST;A;RST-LC;V4.14;014030001;1;140;FIM;
+Não há dados de payload nessa mensagem, só possui o header.
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+147
+
+Protocolo de Comunicação
+Mensagens do rastreador para o servidor:
+
+
+Mensagem ID 18: Solicitação do pacote de dados do firmware
+RST;A;RST-LC;V4.14;014030001;1;18;78;1239;2764;FIM;
+Para esta mensagem, não deve ser enviado a mensagem de ACK para o rastreador e sim a
+mensagem ID 139 com os dados do pacote.
+
+
+
+Mensagem ID 19: Mensagem de status do andamento da atualização de firmware
+RST;A;RST-LC;V4.14;014030001;1;19;1;FIM;
+Em vermelho: Status da atualização
+Se valor igual a 1 = Fim do recebimento dos pacotes do novo firmware
+Se valor igual a 2 = Erro ao gravar o pacote de dados do novo firmware
+Se valor igual a 3 = Erro ao fazer o backup da versão de firmware atual
+Se valor igual a 4 = Erro de CRC do novo firmware
+Se valor igual a 5 = Novo firmware OK
+Se valor igual a 6 = Restaure da versão de firmware anterior
+Se valor igual a 7 = Erro de timeout da atualização via porta serial
+Se valor igual a 8 = Erro no arquivo do firmware novo
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+148
+
+Protocolo de Comunicação
+
+8.4 PASSO A PASSO PARA ATUALIZAÇÃO
+Abaixo é demonstrado os passos que devem seguir para a correta atualização de firmware do
+rastreador:
+1) Com a ignição ligada, o servidor deverá enviar a mensagem de início de atualização de
+firmware (ID: 138);
+2) Após o rastreador receber esse comando, ele irá solicitar os pacotes da nova versão de
+firmware através da mensagem ID: 18;
+3) O servidor ao receber a mensagem ID 18, deverá ler qual é o número do pacote solicitado e
+responder ao rastreador com os dados utilizando a mensagem ID: 139;
+4) Ao termino do envio de todos os pacotes corretamente, o rastreador irá enviar a mensagem
+ID 19 com o valor do status em 1, indicando o final das solicitações dos pacotes;
+5) Nesse momento o rastreador irá automaticamente se reiniciar em 30 segundos para trocar
+a versão de firmware;
+6) Ao voltar a comunicar-se com o servidor, o rastreador irá enviar a mensagem ID 19 com o
+valor do status em 5;
+7) Nesse momento a atualização de firmware foi concluída com sucesso.
+
+Em qualquer momento da atualização é possível enviar o comando para cancelar a atualização
+(ID: 140).
+
+Data
+
+Departamento
+
+Elaborado por Ivo Cherobim
+
+06-08-2015
+
+Engenharia
+
+Aprovado por Sérgio Souza Silva
+
+06-08-2015
+
+Engenharia
+
+Página
+149
+
+
