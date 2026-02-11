@@ -45,6 +45,8 @@ public class DatabaseStorage extends Storage {
     private final ObjectMapper objectMapper;
     private final String databaseType;
 
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(DatabaseStorage.class);
+
     @Inject
     public DatabaseStorage(Config config, DataSource dataSource, ObjectMapper objectMapper) {
         this.config = config;
@@ -53,6 +55,7 @@ public class DatabaseStorage extends Storage {
 
         try (var connection = dataSource.getConnection()) {
             databaseType = connection.getMetaData().getDatabaseProductName();
+            LOGGER.info("Connected to {} database", databaseType);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }

@@ -43,16 +43,18 @@ public class AsyncSocketServlet extends JettyWebSocketServlet {
     private final ConnectionManager connectionManager;
     private final Storage storage;
     private final LoginService loginService;
+    private final org.traccar.api.security.PermissionsService permissionsService;
 
     @Inject
     public AsyncSocketServlet(
             Config config, ObjectMapper objectMapper, ConnectionManager connectionManager, Storage storage,
-            LoginService loginService) {
+            LoginService loginService, org.traccar.api.security.PermissionsService permissionsService) {
         this.config = config;
         this.objectMapper = objectMapper;
         this.connectionManager = connectionManager;
         this.storage = storage;
         this.loginService = loginService;
+        this.permissionsService = permissionsService;
     }
 
     @Override
@@ -72,7 +74,8 @@ public class AsyncSocketServlet extends JettyWebSocketServlet {
                 userId = (Long) ((HttpSession) req.getSession()).getAttribute(SessionHelper.USER_ID_KEY);
             }
             if (userId != null) {
-                return new AsyncSocket(objectMapper, connectionManager, storage, userId);
+                String turbo = permissionsService.getServer().getString("position.turbo", "24 hours");
+                return new AsyncSocket(objectMapper, connectionManager, storage, userId, turbo);
             }
             return null;
         });

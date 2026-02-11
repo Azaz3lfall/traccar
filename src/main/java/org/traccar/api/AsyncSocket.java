@@ -50,15 +50,18 @@ public class AsyncSocket implements Session.Listener.AutoDemanding, ConnectionMa
     private final ConnectionManager connectionManager;
     private final Storage storage;
     private final long userId;
+    private final String turbo;
 
     private boolean includeLogs;
     private Session session;
 
-    public AsyncSocket(ObjectMapper objectMapper, ConnectionManager connectionManager, Storage storage, long userId) {
+    public AsyncSocket(
+            ObjectMapper objectMapper, ConnectionManager connectionManager, Storage storage, long userId, String turbo) {
         this.objectMapper = objectMapper;
         this.connectionManager = connectionManager;
         this.storage = storage;
         this.userId = userId;
+        this.turbo = turbo;
     }
 
     @Override
@@ -66,7 +69,7 @@ public class AsyncSocket implements Session.Listener.AutoDemanding, ConnectionMa
         this.session = session;
         try {
             Map<String, Collection<?>> data = new HashMap<>();
-            data.put(KEY_POSITIONS, PositionUtil.getLatestPositions(storage, userId));
+            data.put(KEY_POSITIONS, PositionUtil.getLatestPositions(storage, userId, turbo));
             sendData(data);
             connectionManager.addListener(userId, this);
         } catch (StorageException e) {
