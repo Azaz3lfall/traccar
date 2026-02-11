@@ -2,15 +2,15 @@
 
 # Configuration
 # format: "username:password:host"
-# HOSTS=(
-#     "root:FurudUtsukNoncomUnrank:codeartisan.cloud"
-#     # Add more hosts here
-# )
-
 HOSTS=(
-    "root:@Ff217ae7:gps.absmultipla.com.br"
+    "root:FurudUtsukNoncomUnrank:codeartisan.cloud"
     # Add more hosts here
 )
+
+# HOSTS=(
+#     "root:@Ff217ae7:gps.absmultipla.com.br"
+#     # Add more hosts here
+# )
 
 TRACCAR_SERVICE_CONTENT="[Unit]
 Description=traccar
