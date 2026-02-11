@@ -29,7 +29,7 @@ ExecStart=/opt/traccar/jre/bin/java \
   -XX:+HeapDumpOnOutOfMemoryError \
   -XX:HeapDumpPath=/opt/traccar/logs \
   -Djava.net.preferIPv4Stack=true \
-  -jar tracker-server.jar conf/traccar.xml
+  -cp "tracker-server.jar:lib/*" org.traccar.Main conf/traccar.xml
 SyslogIdentifier=traccar
 SuccessExitStatus=143
 WatchdogSec=600
