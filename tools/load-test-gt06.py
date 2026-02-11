@@ -144,8 +144,9 @@ async def main():
     args = parser.parse_args()
 
     print(f"Generating {args.devices} devices...")
-    # Generate realistic 15-digit IMEIs starting with 358484
-    devices = [Device(f"{358484000000000 + i:015d}") for i in range(args.devices)]
+    # Generate realistic 15-digit IMEIs: Prefix + Sequential (shifted left) + Random (last 5)
+    # This handles up to 1M devices without overlaps
+    devices = [Device(f"{358484000000000 + (i * 100000) + random.randint(0, 99999):015d}") for i in range(args.devices)]
 
     semaphore = asyncio.Semaphore(args.concurrency)
     report_count = 0
