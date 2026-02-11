@@ -19,8 +19,17 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=/opt/traccar
-# ExecStart=/opt/traccar/jre/bin/java -jar tracker-server.jar conf/traccar.xml
-ExecStart=/opt/traccar/jre/bin/java -cp \"tracker-server.jar:lib/*\" org.traccar.Main conf/traccar.xml
+ExecStart=/opt/traccar/jre/bin/java \
+  -Xms8g \
+  -Xmx12g \
+  -XX:+UseG1GC \
+  -XX:MaxGCPauseMillis=200 \
+  -XX:+AlwaysPreTouch \
+  -XX:+DisableExplicitGC \
+  -XX:+HeapDumpOnOutOfMemoryError \
+  -XX:HeapDumpPath=/opt/traccar/logs \
+  -Djava.net.preferIPv4Stack=true \
+  -jar tracker-server.jar conf/traccar.xml
 SyslogIdentifier=traccar
 SuccessExitStatus=143
 WatchdogSec=600
