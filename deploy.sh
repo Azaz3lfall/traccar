@@ -69,12 +69,9 @@ for HOST_INFO in "${HOSTS[@]}"; do
     echo "--------------------------------------------------"
     echo "Processing $REMOTE_HOST..."
 
-    SSH_BASE="sshpass -p '$REMOTE_PASS' ssh -q -T -o StrictHostKeyChecking=no $REMOTE_USER@$REMOTE_HOST"
-    SCP_BASE="sshpass -p '$REMOTE_PASS' scp -q -o StrictHostKeyChecking=no"
-
     if [ "$ROLLBACK" = true ]; then
         show_progress "Rolling back on $REMOTE_HOST..."
-        RSCRIPT=$(cat << 'EOF'
+        sshpass -p "$REMOTE_PASS" ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" << EOF
             if [ -f /opt/traccar/tracker-server.jar.bak ] && [ -d /opt/traccar/lib.bak ]; then
                 sudo systemctl stop traccar
                 sudo rm -rf /opt/traccar/lib /opt/traccar/tracker-server.jar
@@ -87,34 +84,30 @@ for HOST_INFO in "${HOSTS[@]}"; do
                 exit 1
             fi
 EOF
-        )
-        echo "$RSCRIPT" | $SSH_BASE
     else
         # Normal Deployment
         show_progress "Preparing remote and backing up current version..."
-        RSCRIPT=$(cat << 'EOF'
+        sshpass -p "$REMOTE_PASS" ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" << EOF
             sudo rm -rf /opt/traccar/lib.bak /opt/traccar/tracker-server.jar.bak
             [ -f /opt/traccar/tracker-server.jar ] && sudo cp /opt/traccar/tracker-server.jar /opt/traccar/tracker-server.jar.bak
             [ -d /opt/traccar/lib ] && sudo cp -r /opt/traccar/lib /opt/traccar/lib.bak
             sudo rm -rf /opt/traccar/lib /opt/traccar/tracker-server.jar
 EOF
-        )
-        echo "$RSCRIPT" | $SSH_BASE
 
         # Upload
-        show_progress "Uploading binaries (this may take a moment)..."
+        show_progress "Uploading binaries..."
         echo "   -> tracker-server.jar"
-        $SCP_BASE target/tracker-server.jar "$REMOTE_USER@$REMOTE_HOST:/tmp/"
+        sshpass -p "$REMOTE_PASS" scp -o StrictHostKeyChecking=no target/tracker-server.jar "$REMOTE_USER@$REMOTE_HOST:/tmp/"
         echo "   -> lib/ directory"
-        $SCP_BASE -r target/lib "$REMOTE_USER@$REMOTE_HOST:/tmp/"
+        sshpass -p "$REMOTE_PASS" scp -o StrictHostKeyChecking=no -r target/lib "$REMOTE_USER@$REMOTE_HOST:/tmp/"
 
         # Update Service & Cleanup
         show_progress "Updating service and restarting traccar..."
         echo "$TRACCAR_SERVICE_CONTENT" > traccar.service.tmp
-        $SCP_BASE traccar.service.tmp "$REMOTE_USER@$REMOTE_HOST:/tmp/traccar.service"
+        sshpass -p "$REMOTE_PASS" scp -o StrictHostKeyChecking=no traccar.service.tmp "$REMOTE_USER@$REMOTE_HOST:/tmp/traccar.service"
         rm traccar.service.tmp
 
-        RSCRIPT=$(cat << 'EOF'
+        sshpass -p "$REMOTE_PASS" ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" << EOF
             sudo mv /tmp/tracker-server.jar /opt/traccar/
             sudo mv /tmp/lib /opt/traccar/
             sudo mv /tmp/traccar.service /etc/systemd/system/traccar.service
@@ -122,8 +115,6 @@ EOF
             sudo systemctl daemon-reload
             sudo systemctl restart traccar
 EOF
-        )
-        echo "$RSCRIPT" | $SSH_BASE
     fi
     echo "Host $REMOTE_HOST finished."
 done
