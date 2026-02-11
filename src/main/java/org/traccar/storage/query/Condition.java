@@ -176,17 +176,37 @@ public interface Condition {
 
     class LatestPositions implements Condition {
         private final long deviceId;
+        private final long userId;
+        private final String turbo;
 
         public LatestPositions(long deviceId) {
+            this(deviceId, 0, null);
+        }
+
+        public LatestPositions(long userId, String turbo) {
+            this(0, userId, turbo);
+        }
+
+        public LatestPositions(long deviceId, long userId, String turbo) {
             this.deviceId = deviceId;
+            this.userId = userId;
+            this.turbo = turbo;
         }
 
         public LatestPositions() {
-            this(0);
+            this(0, 0, null);
         }
 
         public long getDeviceId() {
             return deviceId;
+        }
+
+        public long getUserId() {
+            return userId;
+        }
+
+        public String getTurbo() {
+            return turbo;
         }
     }
 

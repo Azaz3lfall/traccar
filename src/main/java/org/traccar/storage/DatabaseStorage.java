@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.traccar.config.Config;
 import org.traccar.model.BaseModel;
 import org.traccar.model.Device;
+import org.traccar.model.Position;
 import org.traccar.model.Group;
 import org.traccar.model.GroupedModel;
 import org.traccar.model.Permission;
@@ -233,6 +234,12 @@ public class DatabaseStorage extends Storage {
                 results.add(conditionId);
             }
         } else if (genericCondition instanceof Condition.LatestPositions condition) {
+            if (condition.getUserId() > 0) {
+                results.add(condition.getUserId());
+            }
+            if (condition.getTurbo() != null) {
+                results.add(condition.getTurbo());
+            }
             if (condition.getDeviceId() > 0) {
                 results.add(condition.getDeviceId());
             }
@@ -288,13 +295,30 @@ public class DatabaseStorage extends Storage {
 
             } else if (genericCondition instanceof Condition.LatestPositions condition) {
 
-                result.append("id IN (");
-                result.append("SELECT positionId FROM ");
-                result.append(getStorageName(Device.class));
-                if (condition.getDeviceId() > 0) {
-                    result.append(" WHERE id = ?");
+                if (databaseType.toLowerCase().contains("postgresql")) {
+                    result.append("id IN (");
+                    result.append("SELECT p.id FROM ").append(getStorageName(Position.class)).append(" p ");
+                    result.append("JOIN ").append(getStorageName(Device.class)).append(" d ON p.id = d.positionid ");
+                    if (condition.getUserId() > 0) {
+                        result.append("JOIN tc_user_device ud ON d.id = ud.deviceid AND ud.userid = ? ");
+                    }
+                    result.append("WHERE 1=1 ");
+                    if (condition.getTurbo() != null) {
+                        result.append("AND p.fixtime > NOW() - (?)::interval ");
+                    }
+                    if (condition.getDeviceId() > 0) {
+                        result.append("AND d.id = ? ");
+                    }
+                    result.append(")");
+                } else {
+                    result.append("id IN (");
+                    result.append("SELECT positionId FROM ");
+                    result.append(getStorageName(Device.class));
+                    if (condition.getDeviceId() > 0) {
+                        result.append(" WHERE id = ?");
+                    }
+                    result.append(")");
                 }
-                result.append(")");
 
             }
         }
