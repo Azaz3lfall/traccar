@@ -30,6 +30,9 @@ import org.traccar.model.Position;
 import org.traccar.session.ConnectionManager;
 import org.traccar.storage.Storage;
 import org.traccar.storage.StorageException;
+import org.traccar.storage.query.Columns;
+import org.traccar.storage.query.Condition;
+import org.traccar.storage.query.Request;
 
 import java.nio.channels.ClosedChannelException;
 import java.util.Collection;
@@ -51,17 +54,20 @@ public class AsyncSocket implements Session.Listener.AutoDemanding, ConnectionMa
     private final Storage storage;
     private final long userId;
     private final String turbo;
+    private final org.traccar.session.cache.CacheManager cacheManager;
 
     private boolean includeLogs;
     private Session session;
 
     public AsyncSocket(
-            ObjectMapper objectMapper, ConnectionManager connectionManager, Storage storage, long userId, String turbo) {
+            ObjectMapper objectMapper, ConnectionManager connectionManager, Storage storage, long userId, String turbo,
+            org.traccar.session.cache.CacheManager cacheManager) {
         this.objectMapper = objectMapper;
         this.connectionManager = connectionManager;
         this.storage = storage;
         this.userId = userId;
         this.turbo = turbo;
+        this.cacheManager = cacheManager;
     }
 
     @Override
@@ -69,7 +75,19 @@ public class AsyncSocket implements Session.Listener.AutoDemanding, ConnectionMa
         this.session = session;
         try {
             Map<String, Collection<?>> data = new HashMap<>();
-            data.put(KEY_POSITIONS, PositionUtil.getLatestPositions(storage, userId, turbo));
+            
+            // In-Memory Optimization
+            var devices = storage.getObjects(Device.class, new Request(
+                    new Columns.All(), new Condition.Permission(org.traccar.model.User.class, userId, Device.class)));
+            var positions = new java.util.ArrayList<Position>();
+            for (var device : devices) {
+                var position = cacheManager.getPosition(device.getId());
+                if (position != null) {
+                    positions.add(position);
+                }
+            }
+            data.put(KEY_POSITIONS, positions);
+
             sendData(data);
             connectionManager.addListener(userId, this);
         } catch (StorageException e) {

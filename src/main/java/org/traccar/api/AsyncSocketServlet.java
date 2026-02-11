@@ -45,16 +45,18 @@ public class AsyncSocketServlet extends JettyWebSocketServlet {
     private final ConnectionManager connectionManager;
     private final Storage storage;
     private final LoginService loginService;
+    private final org.traccar.session.cache.CacheManager cacheManager;
 
     @Inject
     public AsyncSocketServlet(
             Config config, ObjectMapper objectMapper, ConnectionManager connectionManager, Storage storage,
-            LoginService loginService) {
+            LoginService loginService, org.traccar.session.cache.CacheManager cacheManager) {
         this.config = config;
         this.objectMapper = objectMapper;
         this.connectionManager = connectionManager;
         this.storage = storage;
         this.loginService = loginService;
+        this.cacheManager = cacheManager;
     }
 
     @Override
@@ -78,7 +80,7 @@ public class AsyncSocketServlet extends JettyWebSocketServlet {
                     org.traccar.model.Server server = storage.getObject(
                             org.traccar.model.Server.class, new Request(new Columns.All()));
                     String turbo = server.getString("position.turbo", "24 hours");
-                    return new AsyncSocket(objectMapper, connectionManager, storage, userId, turbo);
+                    return new AsyncSocket(objectMapper, connectionManager, storage, userId, turbo, cacheManager);
                 } catch (StorageException e) {
                     throw new RuntimeException(e);
                 }
