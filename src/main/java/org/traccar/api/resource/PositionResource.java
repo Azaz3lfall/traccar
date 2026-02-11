@@ -17,13 +17,17 @@ package org.traccar.api.resource;
 
 import org.traccar.api.BaseResource;
 import org.traccar.helper.model.PositionUtil;
+import org.traccar.api.security.LoginService;
+import org.traccar.model.Command;
 import org.traccar.model.Device;
 import org.traccar.model.Geofence;
 import org.traccar.model.Position;
+import org.traccar.model.User;
 import org.traccar.model.UserRestrictions;
 import org.traccar.reports.CsvExportProvider;
 import org.traccar.reports.GpxExportProvider;
 import org.traccar.reports.KmlExportProvider;
+import org.traccar.session.cache.CacheManager;
 import org.traccar.storage.StorageException;
 import org.traccar.storage.query.Columns;
 import org.traccar.storage.query.Condition;
@@ -43,6 +47,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.StreamingOutput;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.LinkedList;
@@ -62,10 +67,16 @@ public class PositionResource extends BaseResource {
     private CsvExportProvider csvExportProvider;
 
     @Inject
+    private LoginService loginService;
+
+    @Inject
+    private CacheManager cacheManager;
+
+    @Inject
     private GpxExportProvider gpxExportProvider;
 
     @GET
-    public Stream<Position> getJson(
+    public Stream<Position> get(
             @QueryParam("deviceId") long deviceId, @QueryParam("id") List<Long> positionIds,
             @QueryParam("geofenceId") long geofenceId, @QueryParam("from") Date from, @QueryParam("to") Date to)
             throws StorageException {
@@ -94,9 +105,19 @@ public class PositionResource extends BaseResource {
                         new Columns.All(), new Condition.LatestPositions(deviceId, 0, turbo)));
             }
         } else {
-            String turbo = permissionsService.getServer().getString("position.turbo", "24 hours");
-            LOGGER.info("API /positions called. Using TURBO window: {}", turbo);
-            return PositionUtil.getLatestPositions(storage, getUserId(), turbo).stream();
+            var userId = getUserId();
+            var devices = storage.getObjects(Device.class, new Request(
+                    new Columns.All(), new Condition.Permission(User.class, userId, Device.class)));
+            
+            var positions = new ArrayList<Position>();
+            for (var device : devices) {
+                var position = cacheManager.getPosition(device.getId());
+                if (position != null) {
+                    positions.add(position);
+                }
+            }
+            LOGGER.info("API /positions: Returning {} positions from MEMORY cache.", positions.size());
+            return positions.stream();
         }
     }
 
