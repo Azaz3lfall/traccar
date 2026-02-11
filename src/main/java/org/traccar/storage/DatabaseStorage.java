@@ -299,12 +299,11 @@ public class DatabaseStorage extends Storage {
             } else if (genericCondition instanceof Condition.LatestPositions condition) {
 
                 if (databaseType.toLowerCase().contains("postgresql")) {
+                    LOGGER.info("Generating optimized PostgreSQL query for LatestPositions. Window: {}", condition.getTurbo());
                     result.append("id IN (");
-                    result.append("SELECT p.id FROM ").append(getStorageName(Position.class)).append(" p ");
-                    result.append("JOIN ").append(getStorageName(Device.class)).append(" d ON p.id = d.positionid ");
-                    if (condition.getUserId() > 0) {
-                        result.append("JOIN tc_user_device ud ON d.id = ud.deviceid AND ud.userid = ? ");
-                    }
+                    result.append("SELECT d.positionid FROM ").append(getStorageName(Device.class)).append(" d ");
+                    result.append("JOIN tc_user_device ud ON d.id = ud.deviceid AND ud.userid = ? ");
+                    result.append("JOIN ").append(getStorageName(Position.class)).append(" p ON d.positionid = p.id ");
                     result.append("WHERE 1=1 ");
                     if (condition.getTurbo() != null) {
                         result.append("AND p.fixtime > NOW() - (?)::interval ");
@@ -314,6 +313,7 @@ public class DatabaseStorage extends Storage {
                     }
                     result.append(")");
                 } else {
+                    LOGGER.warn("Using SLOW fallback query for LatestPositions. DB type: {}", databaseType);
                     result.append("id IN (");
                     result.append("SELECT positionId FROM ");
                     result.append(getStorageName(Device.class));

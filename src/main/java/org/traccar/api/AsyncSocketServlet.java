@@ -24,6 +24,8 @@ import org.traccar.config.Keys;
 import org.traccar.helper.SessionHelper;
 import org.traccar.session.ConnectionManager;
 import org.traccar.storage.Storage;
+import org.traccar.storage.query.Columns;
+import org.traccar.storage.query.Request;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
@@ -43,18 +45,16 @@ public class AsyncSocketServlet extends JettyWebSocketServlet {
     private final ConnectionManager connectionManager;
     private final Storage storage;
     private final LoginService loginService;
-    private final org.traccar.api.security.PermissionsService permissionsService;
 
     @Inject
     public AsyncSocketServlet(
             Config config, ObjectMapper objectMapper, ConnectionManager connectionManager, Storage storage,
-            LoginService loginService, org.traccar.api.security.PermissionsService permissionsService) {
+            LoginService loginService) {
         this.config = config;
         this.objectMapper = objectMapper;
         this.connectionManager = connectionManager;
         this.storage = storage;
         this.loginService = loginService;
-        this.permissionsService = permissionsService;
     }
 
     @Override
@@ -74,8 +74,14 @@ public class AsyncSocketServlet extends JettyWebSocketServlet {
                 userId = (Long) ((HttpSession) req.getSession()).getAttribute(SessionHelper.USER_ID_KEY);
             }
             if (userId != null) {
-                String turbo = permissionsService.getServer().getString("position.turbo", "24 hours");
-                return new AsyncSocket(objectMapper, connectionManager, storage, userId, turbo);
+                try {
+                    org.traccar.model.Server server = storage.getObject(
+                            org.traccar.model.Server.class, new Request(new Columns.All()));
+                    String turbo = server.getString("position.turbo", "24 hours");
+                    return new AsyncSocket(objectMapper, connectionManager, storage, userId, turbo);
+                } catch (StorageException e) {
+                    throw new RuntimeException(e);
+                }
             }
             return null;
         });

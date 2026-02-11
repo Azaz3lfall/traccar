@@ -53,6 +53,8 @@ import java.util.stream.Stream;
 @Consumes(MediaType.APPLICATION_JSON)
 public class PositionResource extends BaseResource {
 
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(PositionResource.class);
+
     @Inject
     private KmlExportProvider kmlExportProvider;
 
@@ -93,6 +95,7 @@ public class PositionResource extends BaseResource {
             }
         } else {
             String turbo = permissionsService.getServer().getString("position.turbo", "24 hours");
+            LOGGER.info("API /positions called. Using TURBO window: {}", turbo);
             return PositionUtil.getLatestPositions(storage, getUserId(), turbo).stream();
         }
     }

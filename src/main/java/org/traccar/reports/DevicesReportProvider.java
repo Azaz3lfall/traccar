@@ -45,20 +45,19 @@ public class DevicesReportProvider {
     private final Config config;
     private final ReportUtils reportUtils;
     private final Storage storage;
-    private final org.traccar.api.security.PermissionsService permissionsService;
 
     @Inject
     public DevicesReportProvider(
-            Config config, ReportUtils reportUtils, Storage storage,
-            org.traccar.api.security.PermissionsService permissionsService) {
+            Config config, ReportUtils reportUtils, Storage storage) {
         this.config = config;
         this.reportUtils = reportUtils;
         this.storage = storage;
-        this.permissionsService = permissionsService;
     }
 
     public Collection<DeviceReportItem> getObjects(long userId) throws StorageException {
-        String turbo = permissionsService.getServer().getString("position.turbo", "24 hours");
+        org.traccar.model.Server server = storage.getObject(
+                org.traccar.model.Server.class, new Request(new Columns.All()));
+        String turbo = server.getString("position.turbo", "24 hours");
         var positions = PositionUtil.getLatestPositions(storage, userId, turbo).stream()
                 .collect(Collectors.toMap(Message::getDeviceId, p -> p));
 
