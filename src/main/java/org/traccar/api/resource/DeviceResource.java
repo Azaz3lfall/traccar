@@ -27,6 +27,7 @@ import org.traccar.database.MediaManager;
 import org.traccar.helper.LogAction;
 import org.traccar.model.Device;
 import org.traccar.model.DeviceAccumulators;
+import org.traccar.model.Page;
 import org.traccar.model.Permission;
 import org.traccar.model.Position;
 import org.traccar.model.User;
@@ -58,6 +59,7 @@ import java.security.GeneralSecurityException;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Path("devices")
@@ -96,8 +98,21 @@ public class DeviceResource extends BaseObjectResource<Device> {
         super(Device.class);
     }
 
+    private Stream<Device> getFilteredStream(
+            Columns columns, List<Condition> conditions, String search) throws StorageException {
+        Stream<Device> stream = storage.getObjectsStream(baseClass, new Request(
+                columns, Condition.merge(conditions), new Order("name")));
+        if (search != null && !search.isEmpty()) {
+            String searchLower = search.toLowerCase();
+            return stream.filter(device ->
+                (device.getName() != null && device.getName().toLowerCase().contains(searchLower)) ||
+                (device.getUniqueId() != null && device.getUniqueId().toLowerCase().contains(searchLower)));
+        }
+        return stream;
+    }
+
     @GET
-    public Stream<Device> get(
+    public Response get(
             @QueryParam("all") boolean all, @QueryParam("userId") long userId,
             @QueryParam("uniqueId") List<String> uniqueIds,
             @QueryParam("id") List<Long> deviceIds,
@@ -107,7 +122,6 @@ public class DeviceResource extends BaseObjectResource<Device> {
             @QueryParam("search") String search) throws StorageException {
 
         Columns columns = excludeAttributes ? new Columns.Exclude("attributes") : new Columns.All();
-        Stream<Device> stream;
 
         if (!uniqueIds.isEmpty() || !deviceIds.isEmpty()) {
 
@@ -126,7 +140,7 @@ public class DeviceResource extends BaseObjectResource<Device> {
                                 new Condition.Equals("id", deviceId),
                                 new Condition.Permission(User.class, getUserId(), Device.class)))));
             }
-            stream = result.stream();
+            return Response.ok(result.stream()).build();
 
         } else {
 
@@ -145,26 +159,18 @@ public class DeviceResource extends BaseObjectResource<Device> {
                 }
             }
 
-            stream = storage.getObjectsStream(baseClass, new Request(
-                    columns, Condition.merge(conditions), new Order("name")));
+            if (offset > 0 || limit > 0) {
+                long totalElements = getFilteredStream(columns, conditions, search).count();
+                List<Device> content = getFilteredStream(columns, conditions, search)
+                        .skip(offset)
+                        .limit(limit > 0 ? limit : Long.MAX_VALUE)
+                        .collect(Collectors.toList());
+                return Response.ok(new Page<>(content, totalElements, offset, limit)).build();
+            } else {
+                return Response.ok(getFilteredStream(columns, conditions, search)).build();
+            }
 
         }
-
-        if (search != null && !search.isEmpty()) {
-            String searchLower = search.toLowerCase();
-            stream = stream.filter(device ->
-                (device.getName() != null && device.getName().toLowerCase().contains(searchLower)) ||
-                (device.getUniqueId() != null && device.getUniqueId().toLowerCase().contains(searchLower)));
-        }
-
-        if (offset > 0) {
-            stream = stream.skip(offset);
-        }
-        if (limit > 0) {
-            stream = stream.limit(limit);
-        }
-
-        return stream;
     }
 
     @Path("{id}/accumulators")
