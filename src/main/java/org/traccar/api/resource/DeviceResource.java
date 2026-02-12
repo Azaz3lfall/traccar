@@ -160,11 +160,17 @@ public class DeviceResource extends BaseObjectResource<Device> {
             }
 
             if (offset > 0 || limit > 0) {
-                long totalElements = getFilteredStream(columns, conditions, search).count();
-                List<Device> content = getFilteredStream(columns, conditions, search)
-                        .skip(offset)
-                        .limit(limit > 0 ? limit : Long.MAX_VALUE)
-                        .collect(Collectors.toList());
+                long totalElements;
+                try (Stream<Device> stream = getFilteredStream(columns, conditions, search)) {
+                    totalElements = stream.count();
+                }
+                List<Device> content;
+                try (Stream<Device> stream = getFilteredStream(columns, conditions, search)) {
+                    content = stream
+                            .skip(offset)
+                            .limit(limit > 0 ? limit : Long.MAX_VALUE)
+                            .collect(Collectors.toList());
+                }
                 return Response.ok(new Page<>(content, totalElements, offset, limit)).build();
             } else {
                 return Response.ok(getFilteredStream(columns, conditions, search)).build();
