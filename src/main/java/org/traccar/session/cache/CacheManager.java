@@ -144,17 +144,14 @@ public class CacheManager implements BroadcastInterface {
         references.remove(key);
         if (references.isEmpty()) {
             graph.removeObject(Device.class, deviceId);
-            devicePositions.remove(deviceId);
+            // devicePositions.remove(deviceId); // Keep position in cache for persistent API access
             deviceReferences.remove(deviceId);
         }
         LOGGER.debug("Cache remove device {} references {} key {}", deviceId, references.size(), key);
     }
 
     public void updatePosition(Position position) {
-        deviceReferences.computeIfPresent(position.getDeviceId(), (key, oldValue) -> {
-            devicePositions.put(key, position);
-            return oldValue;
-        });
+        devicePositions.put(position.getDeviceId(), position);
     }
 
     @Override
@@ -167,6 +164,9 @@ public class CacheManager implements BroadcastInterface {
         synchronized (this) {
             if (operation == ObjectOperation.DELETE) {
                 graph.removeObject(clazz, id);
+                if (clazz.equals(Device.class)) {
+                    devicePositions.remove(id);
+                }
             }
             if (operation != ObjectOperation.UPDATE) {
                 return;

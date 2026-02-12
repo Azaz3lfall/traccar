@@ -101,9 +101,13 @@ public class DeviceResource extends BaseObjectResource<Device> {
             @QueryParam("all") boolean all, @QueryParam("userId") long userId,
             @QueryParam("uniqueId") List<String> uniqueIds,
             @QueryParam("id") List<Long> deviceIds,
-            @QueryParam("excludeAttributes") boolean excludeAttributes) throws StorageException {
+            @QueryParam("excludeAttributes") boolean excludeAttributes,
+            @QueryParam("offset") int offset,
+            @QueryParam("limit") int limit,
+            @QueryParam("search") String search) throws StorageException {
 
         Columns columns = excludeAttributes ? new Columns.Exclude("attributes") : new Columns.All();
+        Stream<Device> stream;
 
         if (!uniqueIds.isEmpty() || !deviceIds.isEmpty()) {
 
@@ -122,7 +126,7 @@ public class DeviceResource extends BaseObjectResource<Device> {
                                 new Condition.Equals("id", deviceId),
                                 new Condition.Permission(User.class, getUserId(), Device.class)))));
             }
-            return result.stream();
+            stream = result.stream();
 
         } else {
 
@@ -141,10 +145,26 @@ public class DeviceResource extends BaseObjectResource<Device> {
                 }
             }
 
-            return storage.getObjectsStream(baseClass, new Request(
+            stream = storage.getObjectsStream(baseClass, new Request(
                     columns, Condition.merge(conditions), new Order("name")));
 
         }
+
+        if (search != null && !search.isEmpty()) {
+            String searchLower = search.toLowerCase();
+            stream = stream.filter(device ->
+                (device.getName() != null && device.getName().toLowerCase().contains(searchLower)) ||
+                (device.getUniqueId() != null && device.getUniqueId().toLowerCase().contains(searchLower)));
+        }
+
+        if (offset > 0) {
+            stream = stream.skip(offset);
+        }
+        if (limit > 0) {
+            stream = stream.limit(limit);
+        }
+
+        return stream;
     }
 
     @Path("{id}/accumulators")
