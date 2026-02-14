@@ -17,8 +17,10 @@ package org.traccar.storage;
 
 import org.traccar.model.BaseModel;
 import org.traccar.model.Permission;
+import org.traccar.model.PositionWithDevice;
 import org.traccar.storage.query.Request;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -52,6 +54,15 @@ public abstract class Storage {
         try (var objects = getObjectsStream(clazz, request)) {
             return objects.findFirst().orElse(null);
         }
+    }
+
+    /**
+     * Returns latest positions in the given map bounds with device name and status.
+     * Implemented only for PostgreSQL (direct optimized query). Others return empty list.
+     */
+    public List<PositionWithDevice> getPositionsInBoundsWithDevice(
+            long userId, double minLat, double maxLat, double minLon, double maxLon) throws StorageException {
+        return Collections.emptyList();
     }
 
 }

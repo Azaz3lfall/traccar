@@ -22,6 +22,9 @@ import org.traccar.model.Command;
 import org.traccar.model.Device;
 import org.traccar.model.Geofence;
 import org.traccar.model.Position;
+import org.traccar.model.PositionCluster;
+import org.traccar.model.PositionWithDevice;
+import org.traccar.model.PositionsMapResponse;
 import org.traccar.model.User;
 import org.traccar.model.UserRestrictions;
 import org.traccar.reports.CsvExportProvider;
@@ -49,8 +52,10 @@ import jakarta.ws.rs.core.StreamingOutput;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
-import java.util.List;
 import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Path("positions")
@@ -75,11 +80,23 @@ public class PositionResource extends BaseResource {
     @Inject
     private GpxExportProvider gpxExportProvider;
 
+    private static final int CLUSTER_PIXEL_SIZE = 40;
+
     @GET
-    public Stream<Position> get(
+    public Response get(
             @QueryParam("deviceId") long deviceId, @QueryParam("id") List<Long> positionIds,
-            @QueryParam("geofenceId") long geofenceId, @QueryParam("from") Date from, @QueryParam("to") Date to)
+            @QueryParam("geofenceId") long geofenceId, @QueryParam("from") Date from, @QueryParam("to") Date to,
+            @QueryParam("minLat") Double minLat, @QueryParam("maxLat") Double maxLat,
+            @QueryParam("minLon") Double minLon, @QueryParam("maxLon") Double maxLon,
+            @QueryParam("zoom") Integer zoom)
             throws StorageException {
+        boolean mapView = minLat != null && maxLat != null && minLon != null && maxLon != null && zoom != null
+                && positionIds.isEmpty() && deviceId <= 0 && from == null && to == null;
+        if (mapView) {
+            var list = storage.getPositionsInBoundsWithDevice(getUserId(), minLat, maxLat, minLon, maxLon);
+            PositionsMapResponse mapResponse = buildMapResponse(list, zoom);
+            return Response.ok(mapResponse).build();
+        }
         if (!positionIds.isEmpty()) {
             var positions = new ArrayList<Position>();
             for (long positionId : positionIds) {
@@ -88,7 +105,7 @@ public class PositionResource extends BaseResource {
                 permissionsService.checkPermission(Device.class, getUserId(), position.getDeviceId());
                 positions.add(position);
             }
-            return positions.stream();
+            return Response.ok(positions.stream()).build();
         } else if (deviceId > 0) {
             permissionsService.checkPermission(Device.class, getUserId(), deviceId);
             if (from != null && to != null) {
@@ -97,18 +114,20 @@ public class PositionResource extends BaseResource {
                 Geofence geofence = geofenceId == 0 ? null : storage.getObject(Geofence.class, new Request(
                         new Columns.All(), new Condition.Equals("id", geofenceId)));
 
-                return PositionUtil.getPositionsStream(storage, deviceId, from, to)
+                Stream<Position> stream = PositionUtil.getPositionsStream(storage, deviceId, from, to)
                         .filter(position -> geofence == null || geofence.containsPosition(position));
+                return Response.ok(stream).build();
             } else {
                 String turbo = permissionsService.getServer().getString("position.turbo", "24 hours");
-                return storage.getObjectsStream(Position.class, new Request(
+                Stream<Position> stream = storage.getObjectsStream(Position.class, new Request(
                         new Columns.All(), new Condition.LatestPositions(deviceId, 0, turbo)));
+                return Response.ok(stream).build();
             }
         } else {
             var userId = getUserId();
             var devices = storage.getObjects(Device.class, new Request(
                     new Columns.All(), new Condition.Permission(User.class, userId, Device.class)));
-            
+
             var positions = new ArrayList<Position>();
             for (var device : devices) {
                 var position = cacheManager.getPosition(device.getId());
@@ -117,8 +136,28 @@ public class PositionResource extends BaseResource {
                 }
             }
             LOGGER.info("API /positions: Returning {} positions from MEMORY cache.", positions.size());
-            return positions.stream();
+            return Response.ok(positions.stream()).build();
         }
+    }
+
+    private static PositionsMapResponse buildMapResponse(List<PositionWithDevice> list, int zoom) {
+        double cellDeg = (360.0 / (256 * (1 << Math.max(0, Math.min(zoom, 22))))) * CLUSTER_PIXEL_SIZE;
+        Map<List<Long>, List<PositionWithDevice>> cells = list.stream()
+                .collect(Collectors.groupingBy(p -> List.of(
+                        (long) Math.floor(p.getLatitude() / cellDeg),
+                        (long) Math.floor(p.getLongitude() / cellDeg))));
+        var positions = new ArrayList<PositionWithDevice>();
+        var clusters = new ArrayList<PositionCluster>();
+        for (var group : cells.values()) {
+            if (group.size() == 1) {
+                positions.add(group.get(0));
+            } else {
+                double lat = group.stream().mapToDouble(Position::getLatitude).average().orElse(0);
+                double lon = group.stream().mapToDouble(Position::getLongitude).average().orElse(0);
+                clusters.add(new PositionCluster(lat, lon, group.size()));
+            }
+        }
+        return new PositionsMapResponse(positions, clusters);
     }
 
     @Path("{id}")

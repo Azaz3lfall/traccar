@@ -20,6 +20,7 @@ import org.traccar.config.Config;
 import org.traccar.model.BaseModel;
 import org.traccar.model.Device;
 import org.traccar.model.Position;
+import org.traccar.model.PositionWithDevice;
 import org.traccar.model.Group;
 import org.traccar.model.GroupedModel;
 import org.traccar.model.Permission;
@@ -207,6 +208,32 @@ public class DatabaseStorage extends Storage {
                 builder.setLong(index, entries.get(index).getValue());
             }
             builder.executeUpdate();
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
+    }
+
+    @Override
+    public List<PositionWithDevice> getPositionsInBoundsWithDevice(
+            long userId, double minLat, double maxLat, double minLon, double maxLon) throws StorageException {
+        if (!databaseType.toLowerCase().contains("postgresql")) {
+            return List.of();
+        }
+        try {
+            String sql = "SELECT p.*, d.name AS name, COALESCE(d.status, 'offline') AS status "
+                    + "FROM " + getStorageName(Position.class) + " p "
+                    + "INNER JOIN " + getStorageName(Device.class) + " d ON d.positionid = p.id "
+                    + "INNER JOIN tc_user_device ud ON ud.deviceid = d.id AND ud.userid = ? "
+                    + "WHERE p.latitude BETWEEN ? AND ? AND p.longitude BETWEEN ? AND ?";
+            var builder = QueryBuilder.create(config, dataSource, objectMapper, sql);
+            builder.setLong(0, userId);
+            builder.setDouble(1, minLat);
+            builder.setDouble(2, maxLat);
+            builder.setDouble(3, minLon);
+            builder.setDouble(4, maxLon);
+            try (var stream = builder.executeQueryStreamed(PositionWithDevice.class)) {
+                return stream.toList();
+            }
         } catch (SQLException e) {
             throw new StorageException(e);
         }
