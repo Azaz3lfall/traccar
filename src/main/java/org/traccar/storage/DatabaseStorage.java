@@ -20,6 +20,7 @@ import org.traccar.config.Config;
 import org.traccar.model.BaseModel;
 import org.traccar.model.Device;
 import org.traccar.model.MapBoundsRow;
+import org.traccar.model.MapCellRow;
 import org.traccar.model.Position;
 import org.traccar.model.PositionMapItem;
 import org.traccar.model.PositionWithDevice;
@@ -287,6 +288,52 @@ public class DatabaseStorage extends Storage {
             }
         } catch (SQLException e) {
             LOGGER.warn("getPositionsInBoundsForMapView: query failed", e);
+            throw new StorageException(e);
+        }
+    }
+
+    @Override
+    public List<MapCellRow> getMapCellsInBounds(
+            long userId, double minLat, double maxLat, double minLon, double maxLon, double cellDeg) throws StorageException {
+        if (!databaseType.toLowerCase().contains("postgresql")) {
+            LOGGER.debug("getMapCellsInBounds: skipped (not PostgreSQL)");
+            return List.of();
+        }
+        try {
+            String posTable = getStorageName(Position.class);
+            String devTable = getStorageName(Device.class);
+            String permittedDevices = buildPermittedDeviceIdsSubquery();
+            String sql = "WITH latest AS ("
+                    + "  SELECT p.id, p.deviceid, p.latitude, p.longitude, d.name AS name, COALESCE(d.status, 'offline') AS status "
+                    + "  FROM ("
+                    + "    SELECT DISTINCT ON (deviceid) id, deviceid, latitude, longitude FROM " + posTable
+                    + "    WHERE latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?"
+                    + "    AND deviceid IN (" + permittedDevices + ")"
+                    + "    ORDER BY deviceid, fixtime DESC"
+                    + "  ) p INNER JOIN " + devTable + " d ON d.id = p.deviceid"
+                    + "),"
+                    + " with_cell AS ("
+                    + "  SELECT *, FLOOR(longitude / ?)::bigint AS cell_x, FLOOR(latitude / ?)::bigint AS cell_y FROM latest"
+                    + ")"
+                    + " SELECT COUNT(*) AS count, AVG(latitude) AS latitude, AVG(longitude) AS longitude,"
+                    + " MIN(id) AS id, MIN(deviceid) AS deviceid, MIN(name) AS name, MIN(status) AS status"
+                    + " FROM with_cell GROUP BY cell_x, cell_y";
+            var builder = QueryBuilder.create(config, dataSource, objectMapper, sql);
+            builder.setDouble(0, minLat);
+            builder.setDouble(1, maxLat);
+            builder.setDouble(2, minLon);
+            builder.setDouble(3, maxLon);
+            builder.setLong(4, userId);
+            builder.setLong(5, userId);
+            builder.setDouble(6, cellDeg);
+            builder.setDouble(7, cellDeg);
+            try (var stream = builder.executeQueryStreamed(MapCellRow.class)) {
+                var list = stream.toList();
+                LOGGER.debug("getMapCellsInBounds: user {} -> {} cells from DB", userId, list.size());
+                return list;
+            }
+        } catch (SQLException e) {
+            LOGGER.warn("getMapCellsInBounds: query failed", e);
             throw new StorageException(e);
         }
     }

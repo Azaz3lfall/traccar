@@ -17,6 +17,7 @@ package org.traccar.storage;
 
 import org.traccar.model.BaseModel;
 import org.traccar.model.MapBoundsRow;
+import org.traccar.model.MapCellRow;
 import org.traccar.model.Permission;
 import org.traccar.model.PositionMapItem;
 import org.traccar.model.PositionWithDevice;
@@ -82,6 +83,15 @@ public abstract class Storage {
      */
     public MapBoundsRow getMapBoundsForUser(long userId) throws StorageException {
         return null;
+    }
+
+    /**
+     * Returns one row per grid cell: count + centroid (avg lat/lon); for count=1 row also has id, deviceId, name, status.
+     * Clustering is done in DB. Implemented only for PostgreSQL. Others return empty list.
+     */
+    public List<MapCellRow> getMapCellsInBounds(
+            long userId, double minLat, double maxLat, double minLon, double maxLon, double cellDeg) throws StorageException {
+        return Collections.emptyList();
     }
 
 }

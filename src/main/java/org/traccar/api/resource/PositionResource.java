@@ -23,6 +23,7 @@ import org.traccar.model.Device;
 import org.traccar.model.Geofence;
 import org.traccar.model.Position;
 import org.traccar.model.MapBoundsRow;
+import org.traccar.model.MapCellRow;
 import org.traccar.model.MapInitialResponse;
 import org.traccar.model.PositionCluster;
 import org.traccar.model.PositionMapItem;
@@ -56,8 +57,6 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Path("positions")
@@ -96,10 +95,11 @@ public class PositionResource extends BaseResource {
                 && positionIds.isEmpty() && deviceId <= 0 && from == null && to == null;
         if (mapView) {
             long userId = getUserId();
-            var list = storage.getPositionsInBoundsForMapView(userId, minLat, maxLat, minLon, maxLon);
-            LOGGER.info("API /positions map-view: userId={} bounds=[{},{},{},{}] zoom={} -> {} positions from DB",
-                    userId, minLat, maxLat, minLon, maxLon, zoom, list.size());
-            PositionsMapResponse mapResponse = buildMapResponse(list, zoom);
+            double cellDeg = (360.0 / (256 * (1 << Math.max(0, Math.min(zoom, 22))))) * CLUSTER_PIXEL_SIZE;
+            var cells = storage.getMapCellsInBounds(userId, minLat, maxLat, minLon, maxLon, cellDeg);
+            LOGGER.info("API /positions map-view: userId={} bounds=[{},{},{},{}] zoom={} -> {} cells from DB",
+                    userId, minLat, maxLat, minLon, maxLon, zoom, cells.size());
+            PositionsMapResponse mapResponse = mapCellsToResponse(cells);
             return Response.ok(mapResponse).build();
         }
         if (!positionIds.isEmpty()) {
@@ -145,21 +145,22 @@ public class PositionResource extends BaseResource {
         }
     }
 
-    private static PositionsMapResponse buildMapResponse(List<PositionMapItem> list, int zoom) {
-        double cellDeg = (360.0 / (256 * (1 << Math.max(0, Math.min(zoom, 22))))) * CLUSTER_PIXEL_SIZE;
-        Map<List<Long>, List<PositionMapItem>> cells = list.stream()
-                .collect(Collectors.groupingBy(p -> List.of(
-                        (long) Math.floor(p.getLatitude() / cellDeg),
-                        (long) Math.floor(p.getLongitude() / cellDeg))));
+    /** Converts DB cluster rows (one per cell) to positions list + clusters list. No grouping in memory. */
+    private static PositionsMapResponse mapCellsToResponse(List<MapCellRow> cells) {
         var positions = new ArrayList<PositionMapItem>();
         var clusters = new ArrayList<PositionCluster>();
-        for (var group : cells.values()) {
-            if (group.size() == 1) {
-                positions.add(group.get(0));
+        for (var row : cells) {
+            if (row.getCount() == 1) {
+                PositionMapItem item = new PositionMapItem();
+                item.setId(row.getId());
+                item.setDeviceId(row.getDeviceId());
+                item.setLatitude(row.getLatitude());
+                item.setLongitude(row.getLongitude());
+                item.setName(row.getName());
+                item.setStatus(row.getStatus());
+                positions.add(item);
             } else {
-                double lat = group.stream().mapToDouble(PositionMapItem::getLatitude).average().orElse(0);
-                double lon = group.stream().mapToDouble(PositionMapItem::getLongitude).average().orElse(0);
-                clusters.add(new PositionCluster(lat, lon, group.size()));
+                clusters.add(new PositionCluster(row.getLatitude(), row.getLongitude(), (int) row.getCount()));
             }
         }
         return new PositionsMapResponse(positions, clusters);
@@ -197,8 +198,9 @@ public class PositionResource extends BaseResource {
         double maxLat = bounds.getMaxLat();
         double minLon = bounds.getMinLon();
         double maxLon = bounds.getMaxLon();
-        var list = storage.getPositionsInBoundsForMapView(userId, minLat, maxLat, minLon, maxLon);
-        PositionsMapResponse plot = buildMapResponse(list, zoom);
+        double cellDeg = (360.0 / (256 * (1 << Math.max(0, Math.min(zoom, 22))))) * CLUSTER_PIXEL_SIZE;
+        var cells = storage.getMapCellsInBounds(userId, minLat, maxLat, minLon, maxLon, cellDeg);
+        PositionsMapResponse plot = mapCellsToResponse(cells);
         MapInitialResponse response = new MapInitialResponse();
         response.setMinLat(minLat);
         response.setMaxLat(maxLat);
