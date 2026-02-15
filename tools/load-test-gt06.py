@@ -7,11 +7,11 @@ import time
 import argparse
 import sys
 
-# Sao Paulo (Brazil) Bounding Box
-SP_NORTH = -19.78
-SP_SOUTH = -25.31
-SP_WEST = -53.11
-SP_EAST = -44.16
+# São Paulo city only (município) – inland box to avoid sea/reservoirs
+# (lat_min, lat_max, lon_min, lon_max)
+LAND_BOXES = [
+    (-23.88, -23.40, -46.82, -46.38),   # Município de São Paulo, land only (no coast)
+]
 
 class GT06Protocol:
     MSG_LOGIN = 0x01
@@ -70,11 +70,19 @@ class GT06Protocol:
                                           flags)
         return GT06Protocol.build_packet(GT06Protocol.MSG_LOCATION, content, serial)
 
+def random_land_position():
+    """Pick a random point on land (within one of the LAND_BOXES)."""
+    box = random.choice(LAND_BOXES)
+    south, north, west, east = box
+    lat = random.uniform(south, north)
+    lon = random.uniform(west, east)
+    return lat, lon, box
+
+
 class Device:
     def __init__(self, imei):
         self.imei = imei
-        self.lat = random.uniform(SP_SOUTH, SP_NORTH)
-        self.lon = random.uniform(SP_WEST, SP_EAST)
+        self.lat, self.lon, self._box = random_land_position()
         self.speed = random.uniform(20, 100)
         self.course = random.randint(0, 359)
         self.ignition = random.choice([True, False])
@@ -83,8 +91,9 @@ class Device:
         self.writer = None
 
     def move(self):
-        self.lat += 0.0001
-        self.lon += 0.0001
+        south, north, west, east = self._box
+        self.lat = max(south, min(north, self.lat + 0.0001))
+        self.lon = max(west, min(east, self.lon + 0.0001))
         self.speed = max(0, min(120, self.speed + random.uniform(-5, 5)))
         self.ignition = random.choice([True, False]) if random.random() < 0.05 else self.ignition
 
@@ -95,7 +104,8 @@ class Device:
                 reader, self.writer = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=5.0)
                 self.logged_in = False
                 return True
-            except Exception:
+            except Exception as e:
+                print(f"Connect error: {type(e).__name__}: {e}")
                 return False
         return True
 
@@ -128,7 +138,8 @@ class Device:
             if close_after:
                 self.disconnect()
             return True
-        except Exception:
+        except Exception as e:
+            print(f"Send error (IMEI {self.imei}): {type(e).__name__}: {e}")
             self.disconnect()
             return False
 
@@ -136,17 +147,39 @@ async def main():
     parser = argparse.ArgumentParser(description="GT06 Load Test Script")
     parser.add_argument("--host", default="localhost", help="Server host")
     parser.add_argument("--port", type=int, default=5023, help="Server port")
-    parser.add_argument("--devices", type=int, default=100, help="Number of devices")
-    parser.add_argument("--interval", type=float, default=1.0, help="Total interval cycle (sec)")
-    parser.add_argument("--reports", type=int, default=1000, help="Total reports to send")
-    parser.add_argument("--concurrency", type=int, default=50, help="Max concurrent workers")
-    parser.add_argument("--close", action="store_true", help="Close connection after each report")
+    parser.add_argument("--devices", type=int, default=100, help="Number of devices (sends one report per device)")
+    parser.add_argument("--reports", type=int, default=None, help="Ignored (one report per device); kept for compatibility")
+    parser.add_argument("--interval", type=float, default=2.0, help="Interval cycle per worker (sec); higher = gentler on server")
+    parser.add_argument("--concurrency", type=int, default=20, help="Max concurrent workers (keep low to avoid overwhelming server)")
+    parser.add_argument("--close", action="store_true", help="Close connection after each report (use persistent conns for less load)")
+    parser.add_argument("--max-rps", type=float, default=None, help="Cap reports per second (e.g. 50); avoids DOS")
+    parser.add_argument("--imei-file", default="load-test-imeis.txt", help="File to save/load IMEIs (one per line); reuse on restart")
     args = parser.parse_args()
 
-    print(f"Generating {args.devices} devices...")
-    # Generate realistic 15-digit IMEIs: Prefix + Sequential (shifted left) + Random (last 5)
-    # This handles up to 1M devices without overlaps
-    devices = [Device(f"{358484000000000 + (i * 100000) + random.randint(0, 99999):015d}") for i in range(args.devices)]
+    if args.concurrency > 100:
+        print("Warning: --concurrency > 100 can overwhelm the server. Consider 20-50.")
+    if args.close and args.concurrency > 50:
+        print("Warning: --close with high concurrency opens many short-lived connections. Consider concurrency <= 30.")
+
+    # Load or generate IMEIs (persist to file so restart reuses same devices)
+    imei_file = args.imei_file
+    try:
+        with open(imei_file, "r") as f:
+            imeis = [line.strip() for line in f if line.strip()]
+    except FileNotFoundError:
+        imeis = []
+    if imeis:
+        print(f"Loaded {len(imeis)} IMEIs from {imei_file} (restart mode)")
+        devices = [Device(imei) for imei in imeis]
+    else:
+        print(f"Generating {args.devices} IMEIs and saving to {imei_file}...")
+        # Realistic 15-digit IMEIs: Prefix + Sequential (shifted) + Random (last 5); up to 1M without overlap
+        imeis = [f"{358484000000000 + (i * 100000) + random.randint(0, 99999):015d}" for i in range(args.devices)]
+        with open(imei_file, "w") as f:
+            f.write("\n".join(imeis) + "\n")
+        devices = [Device(imei) for imei in imeis]
+    num_devices = len(devices)
+    print(f"Using {num_devices} devices.")
 
     semaphore = asyncio.Semaphore(args.concurrency)
     report_count = 0
@@ -155,27 +188,78 @@ async def main():
     device_index_lock = asyncio.Lock()
     start_time = time.time()
 
+    # Backoff on failure: global cooldown so ALL workers pause together (no flood of retries)
+    backoff_lock = asyncio.Lock()
+    cooldown_until = [0.0]  # timestamp; workers wait until this before next connect
+    FAIL_PAUSE_SECONDS = 15
+    consecutive_fails = [0]
+    PAUSE_AFTER_CONSECUTIVE_FAILS = 10
+    LONG_PAUSE_SECONDS = 300  # 5 minutes
+
+    # Optional rate cap (reports per second)
+    rate_limit_lock = asyncio.Lock() if args.max_rps else None
+    min_interval = 1.0 / args.max_rps if args.max_rps else 0.0
+    last_send_time = [0.0]
+
+    # One report per device, once (total = num_devices)
+    total_reports = num_devices
+
     async def worker(worker_id):
         nonlocal report_count, fail_count, device_index
-        while report_count < args.reports:
+        while device_index < num_devices:
             async with device_index_lock:
                 idx = device_index
                 device_index += 1
-            
-            device = devices[idx % args.devices]
-            
+
+            device = devices[idx]
+
             async with semaphore:
+                # Wait for global cooldown (so we actually pause after failures)
+                now = time.time()
+                if now < cooldown_until[0]:
+                    wait = cooldown_until[0] - now
+                    await asyncio.sleep(wait)
+
+                if rate_limit_lock is not None and min_interval > 0:
+                    async with rate_limit_lock:
+                        now = time.time()
+                        wait = last_send_time[0] + min_interval - now
+                        if wait > 0:
+                            await asyncio.sleep(wait)
+                        last_send_time[0] = time.time()
+
                 if await device.connect(args.host, args.port):
                     if await device.send_report(close_after=args.close):
                         report_count += 1
+                        consecutive_fails[0] = 0
                         if report_count % 1000 == 0:
                             elapsed = time.time() - start_time
-                            print(f"Sent {report_count}/{args.reports} reports... ({report_count/elapsed:.2f} rps)")
+                            print(f"Sent {report_count}/{total_reports} reports (1 per device)... ({report_count/elapsed:.2f} rps)")
                     else:
                         fail_count += 1
+                        async with backoff_lock:
+                            consecutive_fails[0] += 1
+                            if consecutive_fails[0] >= PAUSE_AFTER_CONSECUTIVE_FAILS:
+                                print(f"{PAUSE_AFTER_CONSECUTIVE_FAILS} consecutive failures: pausing {LONG_PAUSE_SECONDS // 60} min, then auto-resuming...")
+                                cooldown_until[0] = time.time() + LONG_PAUSE_SECONDS
+                                consecutive_fails[0] = 0
+                            else:
+                                print(f"Failure: pausing {FAIL_PAUSE_SECONDS}s (fail #{fail_count}, consecutive {consecutive_fails[0]})")
+                                cooldown_until[0] = time.time() + FAIL_PAUSE_SECONDS
+                        await asyncio.sleep(max(0, cooldown_until[0] - time.time()))
                 else:
                     fail_count += 1
-                
+                    async with backoff_lock:
+                        consecutive_fails[0] += 1
+                        if consecutive_fails[0] >= PAUSE_AFTER_CONSECUTIVE_FAILS:
+                            print(f"{PAUSE_AFTER_CONSECUTIVE_FAILS} consecutive failures: pausing {LONG_PAUSE_SECONDS // 60} min, then auto-resuming...")
+                            cooldown_until[0] = time.time() + LONG_PAUSE_SECONDS
+                            consecutive_fails[0] = 0
+                        else:
+                            print(f"Failure: pausing {FAIL_PAUSE_SECONDS}s (fail #{fail_count}, consecutive {consecutive_fails[0]})")
+                            cooldown_until[0] = time.time() + FAIL_PAUSE_SECONDS
+                    await asyncio.sleep(max(0, cooldown_until[0] - time.time()))
+
                 if (report_count + fail_count) % 1000 == 0 and fail_count > 0:
                     print(f"Warning: {fail_count} failed connection/send attempts so far.")
 
@@ -183,12 +267,14 @@ async def main():
             await asyncio.sleep(args.interval / args.concurrency)
 
     print(f"Targeting: {args.host}:{args.port}")
+    print(f"One report per device: {total_reports} total")
     print(f"Concurrency: {args.concurrency} workers")
     print(f"Mode: {'Connection-per-report' if args.close else 'Persistent-connections'}")
-    
+    if args.max_rps:
+        print(f"Rate cap: {args.max_rps} rps max")
     # Suggest ulimit for high concurrency
-    if args.concurrency > 1000:
-        print("TIP: If you see many failures, run 'ulimit -n 100000' in your terminal.")
+    if args.concurrency > 100:
+        print("TIP: If you see many failures, lower --concurrency (e.g. 20-30) and avoid --close or use --max-rps.")
 
     workers = [asyncio.create_task(worker(i)) for i in range(args.concurrency)]
     await asyncio.gather(*workers)

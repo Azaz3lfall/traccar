@@ -93,7 +93,10 @@ public class PositionResource extends BaseResource {
         boolean mapView = minLat != null && maxLat != null && minLon != null && maxLon != null && zoom != null
                 && positionIds.isEmpty() && deviceId <= 0 && from == null && to == null;
         if (mapView) {
-            var list = storage.getPositionsInBoundsWithDevice(getUserId(), minLat, maxLat, minLon, maxLon);
+            long userId = getUserId();
+            var list = storage.getPositionsInBoundsWithDevice(userId, minLat, maxLat, minLon, maxLon);
+            LOGGER.info("API /positions map-view: userId={} bounds=[{},{},{},{}] zoom={} -> {} positions from DB",
+                    userId, minLat, maxLat, minLon, maxLon, zoom, list.size());
             PositionsMapResponse mapResponse = buildMapResponse(list, zoom);
             return Response.ok(mapResponse).build();
         }

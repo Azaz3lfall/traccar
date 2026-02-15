@@ -21,6 +21,7 @@ import org.traccar.model.BaseModel;
 import org.traccar.model.Device;
 import org.traccar.model.Position;
 import org.traccar.model.PositionWithDevice;
+import org.traccar.model.User;
 import org.traccar.model.Group;
 import org.traccar.model.GroupedModel;
 import org.traccar.model.Permission;
@@ -217,26 +218,57 @@ public class DatabaseStorage extends Storage {
     public List<PositionWithDevice> getPositionsInBoundsWithDevice(
             long userId, double minLat, double maxLat, double minLon, double maxLon) throws StorageException {
         if (!databaseType.toLowerCase().contains("postgresql")) {
+            LOGGER.debug("getPositionsInBoundsWithDevice: skipped (not PostgreSQL)");
             return List.of();
         }
         try {
+            // Single query: bounds filter + permission subquery (no 12k params). Same permission as web.
+            String posTable = getStorageName(Position.class);
+            String devTable = getStorageName(Device.class);
+            String permittedDevices = buildPermittedDeviceIdsSubquery();
             String sql = "SELECT p.*, d.name AS name, COALESCE(d.status, 'offline') AS status "
-                    + "FROM " + getStorageName(Position.class) + " p "
-                    + "INNER JOIN " + getStorageName(Device.class) + " d ON d.positionid = p.id "
-                    + "INNER JOIN tc_user_device ud ON ud.deviceid = d.id AND ud.userid = ? "
-                    + "WHERE p.latitude BETWEEN ? AND ? AND p.longitude BETWEEN ? AND ?";
+                    + "FROM ("
+                    + "  SELECT DISTINCT ON (deviceid) * FROM " + posTable
+                    + "  WHERE latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?"
+                    + "  AND deviceid IN (" + permittedDevices + ")"
+                    + "  ORDER BY deviceid, fixtime DESC"
+                    + ") p "
+                    + "INNER JOIN " + devTable + " d ON d.id = p.deviceid";
             var builder = QueryBuilder.create(config, dataSource, objectMapper, sql);
-            builder.setLong(0, userId);
-            builder.setDouble(1, minLat);
-            builder.setDouble(2, maxLat);
-            builder.setDouble(3, minLon);
-            builder.setDouble(4, maxLon);
+            builder.setDouble(0, minLat);
+            builder.setDouble(1, maxLat);
+            builder.setDouble(2, minLon);
+            builder.setDouble(3, maxLon);
+            builder.setLong(4, userId);
+            builder.setLong(5, userId);
             try (var stream = builder.executeQueryStreamed(PositionWithDevice.class)) {
-                return stream.toList();
+                var list = stream.toList();
+                LOGGER.debug("getPositionsInBoundsWithDevice: user {} -> {} positions in bounds", userId, list.size());
+                return list;
             }
         } catch (SQLException e) {
+            LOGGER.warn("getPositionsInBoundsWithDevice: query failed", e);
             throw new StorageException(e);
         }
+    }
+
+    /** Same device list as web: tc_user_device + devices from user's groups (with hierarchy). 2 params: userId, userId. */
+    private String buildPermittedDeviceIdsSubquery() throws StorageException {
+        String groupTable = getStorageName(Group.class);
+        String userDeviceTable = Permission.getStorageName(User.class, Device.class);
+        String userGroupTable = Permission.getStorageName(User.class, Group.class);
+        return "SELECT " + userDeviceTable + ".deviceid FROM " + userDeviceTable + " WHERE userid = ? "
+                + "UNION "
+                + "SELECT DISTINCT devices.deviceid FROM " + userGroupTable
+                + " INNER JOIN ("
+                + "  SELECT id AS parentid, id AS groupid FROM " + groupTable
+                + "  UNION SELECT groupid AS parentid, id AS groupid FROM " + groupTable + " WHERE groupid IS NOT NULL"
+                + "  UNION SELECT g2.groupid AS parentid, g1.id AS groupid FROM " + groupTable + " AS g2"
+                + "  INNER JOIN " + groupTable + " AS g1 ON g2.id = g1.groupid WHERE g2.groupid IS NOT NULL"
+                + ") AS all_groups ON " + userGroupTable + ".groupid = all_groups.parentid "
+                + "INNER JOIN (SELECT groupid AS parentid, id AS deviceid FROM " + getStorageName(Device.class)
+                + " WHERE groupid IS NOT NULL) AS devices ON all_groups.groupid = devices.parentid "
+                + "WHERE " + userGroupTable + ".userid = ?";
     }
 
     private String getStorageName(Class<?> clazz) throws StorageException {
