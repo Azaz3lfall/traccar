@@ -17,6 +17,7 @@ package org.traccar.storage;
 
 import org.traccar.model.BaseModel;
 import org.traccar.model.Permission;
+import org.traccar.model.PositionMapItem;
 import org.traccar.model.PositionWithDevice;
 import org.traccar.storage.query.Request;
 
@@ -61,6 +62,15 @@ public abstract class Storage {
      * Implemented only for PostgreSQL (direct optimized query). Others return empty list.
      */
     public List<PositionWithDevice> getPositionsInBoundsWithDevice(
+            long userId, double minLat, double maxLat, double minLon, double maxLon) throws StorageException {
+        return Collections.emptyList();
+    }
+
+    /**
+     * Returns minimal position data for map view (id, deviceId, lat, lon, name, status) in bounds.
+     * Implemented only for PostgreSQL. Others return empty list.
+     */
+    public List<PositionMapItem> getPositionsInBoundsForMapView(
             long userId, double minLat, double maxLat, double minLon, double maxLon) throws StorageException {
         return Collections.emptyList();
     }

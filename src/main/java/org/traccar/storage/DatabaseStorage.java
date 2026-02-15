@@ -20,6 +20,7 @@ import org.traccar.config.Config;
 import org.traccar.model.BaseModel;
 import org.traccar.model.Device;
 import org.traccar.model.Position;
+import org.traccar.model.PositionMapItem;
 import org.traccar.model.PositionWithDevice;
 import org.traccar.model.User;
 import org.traccar.model.Group;
@@ -248,6 +249,43 @@ public class DatabaseStorage extends Storage {
             }
         } catch (SQLException e) {
             LOGGER.warn("getPositionsInBoundsWithDevice: query failed", e);
+            throw new StorageException(e);
+        }
+    }
+
+    @Override
+    public List<PositionMapItem> getPositionsInBoundsForMapView(
+            long userId, double minLat, double maxLat, double minLon, double maxLon) throws StorageException {
+        if (!databaseType.toLowerCase().contains("postgresql")) {
+            LOGGER.debug("getPositionsInBoundsForMapView: skipped (not PostgreSQL)");
+            return List.of();
+        }
+        try {
+            String posTable = getStorageName(Position.class);
+            String devTable = getStorageName(Device.class);
+            String permittedDevices = buildPermittedDeviceIdsSubquery();
+            String sql = "SELECT p.id, p.deviceid, p.latitude, p.longitude, d.name AS name, COALESCE(d.status, 'offline') AS status "
+                    + "FROM ("
+                    + "  SELECT DISTINCT ON (deviceid) id, deviceid, latitude, longitude FROM " + posTable
+                    + "  WHERE latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?"
+                    + "  AND deviceid IN (" + permittedDevices + ")"
+                    + "  ORDER BY deviceid, fixtime DESC"
+                    + ") p "
+                    + "INNER JOIN " + devTable + " d ON d.id = p.deviceid";
+            var builder = QueryBuilder.create(config, dataSource, objectMapper, sql);
+            builder.setDouble(0, minLat);
+            builder.setDouble(1, maxLat);
+            builder.setDouble(2, minLon);
+            builder.setDouble(3, maxLon);
+            builder.setLong(4, userId);
+            builder.setLong(5, userId);
+            try (var stream = builder.executeQueryStreamed(PositionMapItem.class)) {
+                var list = stream.toList();
+                LOGGER.debug("getPositionsInBoundsForMapView: user {} -> {} positions in bounds", userId, list.size());
+                return list;
+            }
+        } catch (SQLException e) {
+            LOGGER.warn("getPositionsInBoundsForMapView: query failed", e);
             throw new StorageException(e);
         }
     }

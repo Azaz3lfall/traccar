@@ -19,25 +19,26 @@ import java.util.List;
 
 /**
  * Response for GET /api/positions with map bounds and zoom (positions + clusters).
+ * Positions are minimal (id, deviceId, latitude, longitude, name, status) for map plotting only.
  */
 public class PositionsMapResponse {
 
-    private List<PositionWithDevice> positions;
+    private List<PositionMapItem> positions;
     private List<PositionCluster> clusters;
 
     public PositionsMapResponse() {
     }
 
-    public PositionsMapResponse(List<PositionWithDevice> positions, List<PositionCluster> clusters) {
+    public PositionsMapResponse(List<PositionMapItem> positions, List<PositionCluster> clusters) {
         this.positions = positions;
         this.clusters = clusters;
     }
 
-    public List<PositionWithDevice> getPositions() {
+    public List<PositionMapItem> getPositions() {
         return positions;
     }
 
-    public void setPositions(List<PositionWithDevice> positions) {
+    public void setPositions(List<PositionMapItem> positions) {
         this.positions = positions;
     }
 

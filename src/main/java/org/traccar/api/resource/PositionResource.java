@@ -23,7 +23,7 @@ import org.traccar.model.Device;
 import org.traccar.model.Geofence;
 import org.traccar.model.Position;
 import org.traccar.model.PositionCluster;
-import org.traccar.model.PositionWithDevice;
+import org.traccar.model.PositionMapItem;
 import org.traccar.model.PositionsMapResponse;
 import org.traccar.model.User;
 import org.traccar.model.UserRestrictions;
@@ -94,7 +94,7 @@ public class PositionResource extends BaseResource {
                 && positionIds.isEmpty() && deviceId <= 0 && from == null && to == null;
         if (mapView) {
             long userId = getUserId();
-            var list = storage.getPositionsInBoundsWithDevice(userId, minLat, maxLat, minLon, maxLon);
+            var list = storage.getPositionsInBoundsForMapView(userId, minLat, maxLat, minLon, maxLon);
             LOGGER.info("API /positions map-view: userId={} bounds=[{},{},{},{}] zoom={} -> {} positions from DB",
                     userId, minLat, maxLat, minLon, maxLon, zoom, list.size());
             PositionsMapResponse mapResponse = buildMapResponse(list, zoom);
@@ -143,20 +143,20 @@ public class PositionResource extends BaseResource {
         }
     }
 
-    private static PositionsMapResponse buildMapResponse(List<PositionWithDevice> list, int zoom) {
+    private static PositionsMapResponse buildMapResponse(List<PositionMapItem> list, int zoom) {
         double cellDeg = (360.0 / (256 * (1 << Math.max(0, Math.min(zoom, 22))))) * CLUSTER_PIXEL_SIZE;
-        Map<List<Long>, List<PositionWithDevice>> cells = list.stream()
+        Map<List<Long>, List<PositionMapItem>> cells = list.stream()
                 .collect(Collectors.groupingBy(p -> List.of(
                         (long) Math.floor(p.getLatitude() / cellDeg),
                         (long) Math.floor(p.getLongitude() / cellDeg))));
-        var positions = new ArrayList<PositionWithDevice>();
+        var positions = new ArrayList<PositionMapItem>();
         var clusters = new ArrayList<PositionCluster>();
         for (var group : cells.values()) {
             if (group.size() == 1) {
                 positions.add(group.get(0));
             } else {
-                double lat = group.stream().mapToDouble(Position::getLatitude).average().orElse(0);
-                double lon = group.stream().mapToDouble(Position::getLongitude).average().orElse(0);
+                double lat = group.stream().mapToDouble(PositionMapItem::getLatitude).average().orElse(0);
+                double lon = group.stream().mapToDouble(PositionMapItem::getLongitude).average().orElse(0);
                 clusters.add(new PositionCluster(lat, lon, group.size()));
             }
         }
