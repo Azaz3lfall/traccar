@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.traccar.config.Config;
 import org.traccar.model.BaseModel;
 import org.traccar.model.Device;
+import org.traccar.model.MapBoundsRow;
 import org.traccar.model.Position;
 import org.traccar.model.PositionMapItem;
 import org.traccar.model.PositionWithDevice;
@@ -286,6 +287,38 @@ public class DatabaseStorage extends Storage {
             }
         } catch (SQLException e) {
             LOGGER.warn("getPositionsInBoundsForMapView: query failed", e);
+            throw new StorageException(e);
+        }
+    }
+
+    @Override
+    public MapBoundsRow getMapBoundsForUser(long userId) throws StorageException {
+        if (!databaseType.toLowerCase().contains("postgresql")) {
+            return null;
+        }
+        try {
+            String posTable = getStorageName(Position.class);
+            String permittedDevices = buildPermittedDeviceIdsSubquery();
+            String sql = "SELECT MIN(latitude) AS \"minLat\", MAX(latitude) AS \"maxLat\", "
+                    + "MIN(longitude) AS \"minLon\", MAX(longitude) AS \"maxLon\", COUNT(*) AS \"deviceCount\" "
+                    + "FROM ("
+                    + "  SELECT DISTINCT ON (deviceid) latitude, longitude FROM " + posTable
+                    + "  WHERE deviceid IN (" + permittedDevices + ")"
+                    + "  ORDER BY deviceid, fixtime DESC"
+                    + ") sub";
+            var builder = QueryBuilder.create(config, dataSource, objectMapper, sql);
+            builder.setLong(0, userId);
+            builder.setLong(1, userId);
+            try (var stream = builder.executeQueryStreamed(MapBoundsRow.class)) {
+                MapBoundsRow row = stream.findFirst().orElse(null);
+                if (row != null) {
+                    LOGGER.debug("getMapBoundsForUser: user {} -> bounds [{},{},{},{}] count {}",
+                            userId, row.getMinLat(), row.getMaxLat(), row.getMinLon(), row.getMaxLon(), row.getDeviceCount());
+                }
+                return row;
+            }
+        } catch (SQLException e) {
+            LOGGER.warn("getMapBoundsForUser: query failed", e);
             throw new StorageException(e);
         }
     }

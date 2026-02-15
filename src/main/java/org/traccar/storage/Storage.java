@@ -16,6 +16,7 @@
 package org.traccar.storage;
 
 import org.traccar.model.BaseModel;
+import org.traccar.model.MapBoundsRow;
 import org.traccar.model.Permission;
 import org.traccar.model.PositionMapItem;
 import org.traccar.model.PositionWithDevice;
@@ -73,6 +74,14 @@ public abstract class Storage {
     public List<PositionMapItem> getPositionsInBoundsForMapView(
             long userId, double minLat, double maxLat, double minLon, double maxLon) throws StorageException {
         return Collections.emptyList();
+    }
+
+    /**
+     * Returns bounding box and count of all user's latest positions (for initial map load).
+     * Implemented only for PostgreSQL. Others return null.
+     */
+    public MapBoundsRow getMapBoundsForUser(long userId) throws StorageException {
+        return null;
     }
 
 }

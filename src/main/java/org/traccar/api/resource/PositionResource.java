@@ -22,6 +22,8 @@ import org.traccar.model.Command;
 import org.traccar.model.Device;
 import org.traccar.model.Geofence;
 import org.traccar.model.Position;
+import org.traccar.model.MapBoundsRow;
+import org.traccar.model.MapInitialResponse;
 import org.traccar.model.PositionCluster;
 import org.traccar.model.PositionMapItem;
 import org.traccar.model.PositionsMapResponse;
@@ -161,6 +163,55 @@ public class PositionResource extends BaseResource {
             }
         }
         return new PositionsMapResponse(positions, clusters);
+    }
+
+    /**
+     * Initial map load: returns map boundaries, suggested zoom, device count,
+     * and plot data (single positions + clusters) in one call.
+     */
+    @Path("map")
+    @GET
+    public Response getMapInitial() throws StorageException {
+        long userId = getUserId();
+        MapBoundsRow bounds = storage.getMapBoundsForUser(userId);
+        if (bounds == null || bounds.getDeviceCount() == 0) {
+            MapInitialResponse empty = new MapInitialResponse();
+            empty.setMinLat(-85);
+            empty.setMaxLat(85);
+            empty.setMinLon(-180);
+            empty.setMaxLon(180);
+            empty.setZoom(2);
+            empty.setDeviceCount(0);
+            empty.setPositions(List.of());
+            empty.setClusters(List.of());
+            return Response.ok(empty).build();
+        }
+        double pad = 1.1;
+        double lonSpan = Math.max((bounds.getMaxLon() - bounds.getMinLon()) * pad, 0.01);
+        double latSpan = Math.max((bounds.getMaxLat() - bounds.getMinLat()) * pad, 0.01);
+        int zoom = (int) Math.floor(Math.min(
+                Math.log(360.0 / lonSpan) / Math.log(2),
+                Math.log(180.0 / latSpan) / Math.log(2)));
+        zoom = Math.max(0, Math.min(20, zoom));
+        double minLat = bounds.getMinLat();
+        double maxLat = bounds.getMaxLat();
+        double minLon = bounds.getMinLon();
+        double maxLon = bounds.getMaxLon();
+        var list = storage.getPositionsInBoundsForMapView(userId, minLat, maxLat, minLon, maxLon);
+        PositionsMapResponse plot = buildMapResponse(list, zoom);
+        MapInitialResponse response = new MapInitialResponse();
+        response.setMinLat(minLat);
+        response.setMaxLat(maxLat);
+        response.setMinLon(minLon);
+        response.setMaxLon(maxLon);
+        response.setZoom(zoom);
+        response.setDeviceCount((int) bounds.getDeviceCount());
+        response.setPositions(plot.getPositions());
+        response.setClusters(plot.getClusters());
+        LOGGER.info("API /positions/map: userId={} -> bounds [{},{},{},{}] zoom={} deviceCount={} positions={} clusters={}",
+                userId, minLat, maxLat, minLon, maxLon, zoom, response.getDeviceCount(),
+                plot.getPositions().size(), plot.getClusters().size());
+        return Response.ok(response).build();
     }
 
     @Path("{id}")
