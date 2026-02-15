@@ -611,16 +611,18 @@ class RuptelaDevice:
         try:
             imei_long = int(self.device_id[:15])  # 15-digit IMEI as long (fits in 8 bytes)
             records = build_ruptela_records(self.lat, self.lon, self.speed, self.course)
-            # data length (2) + imei 8 + type 1 (MSG_RECORDS) + records
+            # Ruptela uses LengthFieldBasedFrameDecoder(1024, 0, 2, 2, 0) -> frame length = length + 4
             payload = struct.pack(">Q", imei_long) + struct.pack("B", 1) + records
-            length = len(payload)
-            pkt = struct.pack(">H", length) + payload
+            # length field value must satisfy: 2 + len(payload) == length + 4  =>  length = len(payload) - 2
+            pkt = struct.pack(">H", len(payload) - 2) + payload
             self.writer.write(pkt)
             await self.writer.drain()
-            try:
-                await asyncio.wait_for(self.reader.read(256), timeout=3.0)
-            except asyncio.TimeoutError:
-                pass
+            # When not closing, wait for server ack so connection stays valid. When --close, skip wait to avoid blocking 3s per report.
+            if not close_after:
+                try:
+                    await asyncio.wait_for(self.reader.read(256), timeout=3.0)
+                except asyncio.TimeoutError:
+                    pass
             self.move()
             if close_after:
                 self.disconnect()
