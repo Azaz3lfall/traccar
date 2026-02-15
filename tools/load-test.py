@@ -576,6 +576,7 @@ class RuptelaDevice:
         self.device_id = device_id
         self.lat, self.lon, self._box = random_land_position()
         self.speed = random.uniform(20, 100)
+        self.course = random.randint(0, 359)
         self.writer = None
         self.reader = None
 
@@ -584,6 +585,7 @@ class RuptelaDevice:
         self.lat = max(south, min(north, self.lat + 0.0001))
         self.lon = max(west, min(east, self.lon + 0.0001))
         self.speed = max(0, min(120, self.speed + random.uniform(-5, 5)))
+        self.course = (self.course + random.randint(-10, 10)) % 360
 
     async def connect(self, host, port):
         if self.writer is None:
