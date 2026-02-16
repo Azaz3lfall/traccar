@@ -28,7 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Singleton
 public class MapInitialCache {
 
-    private static final long TTL_MILLIS = 180_000;
+    private static final long TTL_MILLIS = 300_000;  // 5 minutes
 
     private record Entry(MapInitialResponse response, long createdAt) {
         boolean isExpired(long nowMillis) {
