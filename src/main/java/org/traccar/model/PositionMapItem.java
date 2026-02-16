@@ -25,8 +25,10 @@ public class PositionMapItem {
     private long deviceId;
     private double latitude;
     private double longitude;
+    private double course;
     private String name;
     private String status;
+    private String category;
 
     public long getId() {
         return id;
@@ -60,6 +62,14 @@ public class PositionMapItem {
         this.longitude = longitude;
     }
 
+    public double getCourse() {
+        return course;
+    }
+
+    public void setCourse(double course) {
+        this.course = course;
+    }
+
     public String getName() {
         return name;
     }
@@ -74,6 +84,14 @@ public class PositionMapItem {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
     }
 
 }

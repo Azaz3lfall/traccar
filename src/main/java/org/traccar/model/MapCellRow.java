@@ -26,8 +26,10 @@ public class MapCellRow {
     private double longitude;
     private long id;
     private long deviceId;
+    private double course;
     private String name;
     private String status;
+    private String category;
 
     public long getCount() {
         return count;
@@ -69,6 +71,14 @@ public class MapCellRow {
         this.deviceId = deviceId;
     }
 
+    public double getCourse() {
+        return course;
+    }
+
+    public void setCourse(double course) {
+        this.course = course;
+    }
+
     public String getName() {
         return name;
     }
@@ -83,6 +93,14 @@ public class MapCellRow {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
     }
 
 }

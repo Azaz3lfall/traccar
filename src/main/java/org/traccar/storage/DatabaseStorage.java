@@ -304,9 +304,9 @@ public class DatabaseStorage extends Storage {
             String devTable = getStorageName(Device.class);
             String permittedDevices = buildPermittedDeviceIdsSubquery();
             String sql = "WITH latest AS ("
-                    + "  SELECT p.id, p.deviceid, p.latitude, p.longitude, d.name AS name, COALESCE(d.status, 'offline') AS status "
+                    + "  SELECT p.id, p.deviceid, p.latitude, p.longitude, p.course, d.name AS name, COALESCE(d.status, 'offline') AS status, d.category AS category "
                     + "  FROM ("
-                    + "    SELECT DISTINCT ON (deviceid) id, deviceid, latitude, longitude FROM " + posTable
+                    + "    SELECT DISTINCT ON (deviceid) id, deviceid, latitude, longitude, course FROM " + posTable
                     + "    WHERE latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?"
                     + "    AND deviceid IN (" + permittedDevices + ")"
                     + "    ORDER BY deviceid, fixtime DESC"
@@ -316,7 +316,7 @@ public class DatabaseStorage extends Storage {
                     + "  SELECT *, FLOOR(longitude / ?)::bigint AS cell_x, FLOOR(latitude / ?)::bigint AS cell_y FROM latest"
                     + ")"
                     + " SELECT COUNT(*) AS count, AVG(latitude) AS latitude, AVG(longitude) AS longitude,"
-                    + " MIN(id) AS id, MIN(deviceid) AS deviceid, MIN(name) AS name, MIN(status) AS status"
+                    + " MIN(id) AS id, MIN(deviceid) AS deviceid, MIN(course) AS course, MIN(name) AS name, MIN(status) AS status, MIN(category) AS category"
                     + " FROM with_cell GROUP BY cell_x, cell_y";
             var builder = QueryBuilder.create(config, dataSource, objectMapper, sql);
             builder.setDouble(0, minLat);

@@ -156,8 +156,10 @@ public class PositionResource extends BaseResource {
                 item.setDeviceId(row.getDeviceId());
                 item.setLatitude(row.getLatitude());
                 item.setLongitude(row.getLongitude());
+                item.setCourse(row.getCourse());
                 item.setName(row.getName());
                 item.setStatus(row.getStatus());
+                item.setCategory(row.getCategory());
                 positions.add(item);
             } else {
                 clusters.add(new PositionCluster(row.getLatitude(), row.getLongitude(), (int) row.getCount()));
