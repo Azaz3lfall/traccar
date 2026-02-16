@@ -225,7 +225,6 @@ public class PositionResource extends BaseResource {
                 Math.log(360.0 / lonSpan) / Math.log(2),
                 Math.log(180.0 / latSpan) / Math.log(2)));
         zoom = Math.max(0, Math.min(20, zoom));
-        zoom = Math.max(zoom, 12);
         double minLat = bounds.getMinLat();
         double maxLat = bounds.getMaxLat();
         double minLon = bounds.getMinLon();
