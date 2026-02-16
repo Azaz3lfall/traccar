@@ -5,6 +5,7 @@ One report per device; shared backoff, rate limit, and IMEI/device-id file.
 All selected protocols run in parallel (each IMEI → one protocol, round-robin).
 """
 import asyncio
+import math
 import random
 import struct
 import time
@@ -24,6 +25,18 @@ def random_land_position():
     lat = random.uniform(south, north)
     lon = random.uniform(west, east)
     return lat, lon, box
+
+
+def wander_in_box(lat: float, lon: float, box) -> tuple:
+    """Move lat/lon by a random small step in a random direction (avoids grid-like drift)."""
+    south, north, west, east = box
+    step = random.uniform(0.00005, 0.00025)
+    angle = random.uniform(0, 2 * math.pi)
+    lat_delta = step * math.cos(angle)
+    lon_delta = step * math.sin(angle)
+    new_lat = max(south, min(north, lat + lat_delta))
+    new_lon = max(west, min(east, lon + lon_delta))
+    return new_lat, new_lon
 
 
 # ---------------------------------------------------------------------------
@@ -93,9 +106,7 @@ class GT06Device:
         self.writer = None
 
     def move(self):
-        south, north, west, east = self._box
-        self.lat = max(south, min(north, self.lat + 0.0001))
-        self.lon = max(west, min(east, self.lon + 0.0001))
+        self.lat, self.lon = wander_in_box(self.lat, self.lon, self._box)
         self.speed = max(0, min(120, self.speed + random.uniform(-5, 5)))
         self.ignition = random.choice([True, False]) if random.random() < 0.05 else self.ignition
 
@@ -172,9 +183,7 @@ class SuntechDevice:
         self.writer = None
 
     def move(self):
-        south, north, west, east = self._box
-        self.lat = max(south, min(north, self.lat + 0.0001))
-        self.lon = max(west, min(east, self.lon + 0.0001))
+        self.lat, self.lon = wander_in_box(self.lat, self.lon, self._box)
         self.speed = max(0, min(120, self.speed + random.uniform(-5, 5)))
 
     async def connect(self, host, port):
@@ -249,9 +258,7 @@ class OsmandDevice:
         self.reader = None
 
     def move(self):
-        south, north, west, east = self._box
-        self.lat = max(south, min(north, self.lat + 0.0001))
-        self.lon = max(west, min(east, self.lon + 0.0001))
+        self.lat, self.lon = wander_in_box(self.lat, self.lon, self._box)
 
     async def connect(self, host, port):
         if self.writer is None:
@@ -324,9 +331,7 @@ class Tk103Device:
         self.writer = None
 
     def move(self):
-        south, north, west, east = self._box
-        self.lat = max(south, min(north, self.lat + 0.0001))
-        self.lon = max(west, min(east, self.lon + 0.0001))
+        self.lat, self.lon = wander_in_box(self.lat, self.lon, self._box)
         self.speed = max(0, min(120, self.speed + random.uniform(-5, 5)))
 
     async def connect(self, host, port):
@@ -403,9 +408,7 @@ class TeltonikaDevice:
         self.reader = None
 
     def move(self):
-        south, north, west, east = self._box
-        self.lat = max(south, min(north, self.lat + 0.0001))
-        self.lon = max(west, min(east, self.lon + 0.0001))
+        self.lat, self.lon = wander_in_box(self.lat, self.lon, self._box)
         self.speed = max(0, min(120, self.speed + random.uniform(-5, 5)))
 
     async def connect(self, host, port):
@@ -510,9 +513,7 @@ class MeiligaoDevice:
         self.writer = None
 
     def move(self):
-        south, north, west, east = self._box
-        self.lat = max(south, min(north, self.lat + 0.0001))
-        self.lon = max(west, min(east, self.lon + 0.0001))
+        self.lat, self.lon = wander_in_box(self.lat, self.lon, self._box)
         self.speed = max(0, min(120, self.speed + random.uniform(-5, 5)))
 
     async def connect(self, host, port):
@@ -581,9 +582,7 @@ class RuptelaDevice:
         self.reader = None
 
     def move(self):
-        south, north, west, east = self._box
-        self.lat = max(south, min(north, self.lat + 0.0001))
-        self.lon = max(west, min(east, self.lon + 0.0001))
+        self.lat, self.lon = wander_in_box(self.lat, self.lon, self._box)
         self.speed = max(0, min(120, self.speed + random.uniform(-5, 5)))
         self.course = (self.course + random.randint(-10, 10)) % 360
 
@@ -658,9 +657,7 @@ class Gl200Device:
         self.writer = None
 
     def move(self):
-        south, north, west, east = self._box
-        self.lat = max(south, min(north, self.lat + 0.0001))
-        self.lon = max(west, min(east, self.lon + 0.0001))
+        self.lat, self.lon = wander_in_box(self.lat, self.lon, self._box)
         self.speed = max(0, min(120, self.speed + random.uniform(-5, 5)))
 
     async def connect(self, host, port):
