@@ -117,7 +117,9 @@ public class PositionResource extends BaseResource {
             long userId = getUserId();
             double lonSpan = maxLon - minLon;
             int zoomFromBounds = zoomFromLonSpan(lonSpan);
-            int effectiveZoom = (zoom != null && zoom > 0) ? Math.max(zoom, zoomFromBounds) : zoomFromBounds;
+            int effectiveZoom = (zoom != null && zoom >= 0)
+                ? Math.max(0, Math.min(22, zoom))
+                : zoomFromBounds;
             List<MapCellRow> cells;
             if (storage.hasPostGIS()) {
                 double epsMeters = epsMetersForZoom(effectiveZoom);
