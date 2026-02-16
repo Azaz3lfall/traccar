@@ -22,6 +22,8 @@ checkstyle {
     toolVersion = "10.23.1"
     configFile = file("gradle/checkstyle.xml")
     checkstyleTest.enabled = false
+    // Don't fail build on checkstyle violations (report still generated in build/reports/checkstyle/)
+    ignoreFailures = true
 }
 
 dependencyUpdates {

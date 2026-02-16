@@ -83,6 +83,9 @@ public class PositionResource extends BaseResource {
 
     private static final int CLUSTER_PIXEL_SIZE = 40;
 
+    /** From zoom 16 onward do not cluster: return each position individually. */
+    private static final int NO_CLUSTER_ZOOM_THRESHOLD = 16;
+
     /** Zoom level from longitude span (narrow bounds => higher zoom => smaller cells). */
     private static int zoomFromLonSpan(double lonSpan) {
         if (lonSpan <= 0) return 22;
@@ -231,12 +234,13 @@ public class PositionResource extends BaseResource {
         double maxLat = bounds.getMaxLat();
         double minLon = bounds.getMinLon();
         double maxLon = bounds.getMaxLon();
+        int zoomForClustering = zoom >= NO_CLUSTER_ZOOM_THRESHOLD ? 22 : zoom;
         List<MapCellRow> cells;
         if (storage.hasPostGIS()) {
-            double epsMeters = epsMetersForZoom(zoom);
+            double epsMeters = epsMetersForZoom(zoomForClustering);
             cells = storage.getMapCellsInBoundsDistance(userId, minLat, maxLat, minLon, maxLon, epsMeters);
         } else {
-            double cellDeg = cellDegForZoom(zoom);
+            double cellDeg = cellDegForZoom(zoomForClustering);
             cells = storage.getMapCellsInBounds(userId, minLat, maxLat, minLon, maxLon, cellDeg);
         }
         PositionsMapResponse plot = mapCellsToResponse(cells);
