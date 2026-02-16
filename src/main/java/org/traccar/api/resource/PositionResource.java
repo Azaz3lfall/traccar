@@ -34,6 +34,7 @@ import org.traccar.reports.CsvExportProvider;
 import org.traccar.reports.GpxExportProvider;
 import org.traccar.reports.KmlExportProvider;
 import org.traccar.session.cache.CacheManager;
+import org.traccar.session.cache.MapInitialCache;
 import org.traccar.storage.StorageException;
 import org.traccar.storage.query.Columns;
 import org.traccar.storage.query.Condition;
@@ -80,6 +81,9 @@ public class PositionResource extends BaseResource {
 
     @Inject
     private GpxExportProvider gpxExportProvider;
+
+    @Inject
+    private MapInitialCache mapInitialCache;
 
     private static final int CLUSTER_PIXEL_SIZE = 40;
 
@@ -210,6 +214,11 @@ public class PositionResource extends BaseResource {
     @GET
     public Response getMapInitial() throws StorageException {
         long userId = getUserId();
+        MapInitialResponse cached = mapInitialCache.get(userId);
+        if (cached != null) {
+            LOGGER.debug("API /positions/map: userId={} from cache", userId);
+            return Response.ok(cached).build();
+        }
         MapBoundsRow bounds = storage.getMapBoundsForUser(userId);
         if (bounds == null || bounds.getDeviceCount() == 0) {
             MapInitialResponse empty = new MapInitialResponse();
@@ -253,6 +262,7 @@ public class PositionResource extends BaseResource {
         response.setDeviceCount((int) bounds.getDeviceCount());
         response.setPositions(plot.getPositions());
         response.setClusters(plot.getClusters());
+        mapInitialCache.put(userId, response);
         LOGGER.info("API /positions/map: userId={} -> bounds [{},{},{},{}] zoom={} deviceCount={} positions={} clusters={}",
                 userId, minLat, maxLat, minLon, maxLon, zoom, response.getDeviceCount(),
                 plot.getPositions().size(), plot.getClusters().size());
