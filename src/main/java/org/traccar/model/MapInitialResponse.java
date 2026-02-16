@@ -20,6 +20,8 @@ import java.util.List;
 /**
  * Response for initial map load: bounds, zoom, device count, and plot data
  * (single positions + clusters) in one call.
+ * Client must render every item in positions and every item in clusters on the map;
+ * do not filter by viewport or drop items or the map will be incomplete.
  */
 public class MapInitialResponse {
 

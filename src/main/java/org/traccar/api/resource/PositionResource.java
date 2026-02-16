@@ -83,6 +83,17 @@ public class PositionResource extends BaseResource {
 
     private static final int CLUSTER_PIXEL_SIZE = 40;
 
+    /** Zoom level from longitude span (narrow bounds => higher zoom => smaller cells). */
+    private static int zoomFromLonSpan(double lonSpan) {
+        if (lonSpan <= 0) return 22;
+        int z = (int) Math.floor(Math.log(360.0 / Math.max(lonSpan, 0.001)) / Math.log(2));
+        return Math.max(0, Math.min(22, z));
+    }
+
+    private static double cellDegForZoom(int zoom) {
+        return (360.0 / (256 * (1 << Math.max(0, Math.min(zoom, 22))))) * CLUSTER_PIXEL_SIZE;
+    }
+
     @GET
     public Response get(
             @QueryParam("deviceId") long deviceId, @QueryParam("id") List<Long> positionIds,
@@ -91,14 +102,17 @@ public class PositionResource extends BaseResource {
             @QueryParam("minLon") Double minLon, @QueryParam("maxLon") Double maxLon,
             @QueryParam("zoom") Integer zoom)
             throws StorageException {
-        boolean mapView = minLat != null && maxLat != null && minLon != null && maxLon != null && zoom != null
+        boolean mapView = minLat != null && maxLat != null && minLon != null && maxLon != null
                 && positionIds.isEmpty() && deviceId <= 0 && from == null && to == null;
         if (mapView) {
             long userId = getUserId();
-            double cellDeg = (360.0 / (256 * (1 << Math.max(0, Math.min(zoom, 22))))) * CLUSTER_PIXEL_SIZE;
+            double lonSpan = maxLon - minLon;
+            int zoomFromBounds = zoomFromLonSpan(lonSpan);
+            int effectiveZoom = (zoom != null && zoom > 0) ? Math.max(zoom, zoomFromBounds) : zoomFromBounds;
+            double cellDeg = cellDegForZoom(effectiveZoom);
             var cells = storage.getMapCellsInBounds(userId, minLat, maxLat, minLon, maxLon, cellDeg);
-            LOGGER.info("API /positions map-view: userId={} bounds=[{},{},{},{}] zoom={} -> {} cells from DB",
-                    userId, minLat, maxLat, minLon, maxLon, zoom, cells.size());
+            LOGGER.info("API /positions map-view: userId={} bounds=[{},{},{},{}] zoom={} effectiveZoom={} -> {} cells from DB",
+                    userId, minLat, maxLat, minLon, maxLon, zoom, effectiveZoom, cells.size());
             PositionsMapResponse mapResponse = mapCellsToResponse(cells);
             return Response.ok(mapResponse).build();
         }
@@ -196,11 +210,12 @@ public class PositionResource extends BaseResource {
                 Math.log(360.0 / lonSpan) / Math.log(2),
                 Math.log(180.0 / latSpan) / Math.log(2)));
         zoom = Math.max(0, Math.min(20, zoom));
+        zoom = Math.max(zoom, 12);
         double minLat = bounds.getMinLat();
         double maxLat = bounds.getMaxLat();
         double minLon = bounds.getMinLon();
         double maxLon = bounds.getMaxLon();
-        double cellDeg = (360.0 / (256 * (1 << Math.max(0, Math.min(zoom, 22))))) * CLUSTER_PIXEL_SIZE;
+        double cellDeg = cellDegForZoom(zoom);
         var cells = storage.getMapCellsInBounds(userId, minLat, maxLat, minLon, maxLon, cellDeg);
         PositionsMapResponse plot = mapCellsToResponse(cells);
         MapInitialResponse response = new MapInitialResponse();

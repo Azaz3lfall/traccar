@@ -22,15 +22,20 @@ LAND_BOXES = [
 def random_land_position():
     box = random.choice(LAND_BOXES)
     south, north, west, east = box
-    lat = random.uniform(south, north)
-    lon = random.uniform(west, east)
+    # Use gaussian-style jitter so points aren't on a uniform grid; scale to ~1% of box
+    span_lat = north - south
+    span_lon = east - west
+    lat = random.gauss((south + north) / 2, span_lat * 0.25)
+    lon = random.gauss((west + east) / 2, span_lon * 0.25)
+    lat = max(south, min(north, lat))
+    lon = max(west, min(east, lon))
     return lat, lon, box
 
 
 def wander_in_box(lat: float, lon: float, box) -> tuple:
-    """Move lat/lon by a random small step in a random direction (avoids grid-like drift)."""
+    """Move lat/lon by a random step in a random direction (avoids grid-like drift)."""
     south, north, west, east = box
-    step = random.uniform(0.00005, 0.00025)
+    step = random.uniform(0.0002, 0.001)
     angle = random.uniform(0, 2 * math.pi)
     lat_delta = step * math.cos(angle)
     lon_delta = step * math.sin(angle)
