@@ -94,6 +94,15 @@ public class PositionResource extends BaseResource {
         return (360.0 / (256 * (1 << Math.max(0, Math.min(zoom, 22))))) * CLUSTER_PIXEL_SIZE;
     }
 
+    /** Approximate earth circumference in meters (for distance-based clustering). */
+    private static final double EARTH_CIRCUMFERENCE_M = 40_075_017.0;
+
+    /** Eps in meters for DBSCAN at given zoom (≈ CLUSTER_PIXEL_SIZE pixels at that zoom). */
+    private static double epsMetersForZoom(int zoom) {
+        int z = Math.max(0, Math.min(22, zoom));
+        return CLUSTER_PIXEL_SIZE * EARTH_CIRCUMFERENCE_M / (256.0 * (1 << z));
+    }
+
     @GET
     public Response get(
             @QueryParam("deviceId") long deviceId, @QueryParam("id") List<Long> positionIds,
@@ -109,8 +118,14 @@ public class PositionResource extends BaseResource {
             double lonSpan = maxLon - minLon;
             int zoomFromBounds = zoomFromLonSpan(lonSpan);
             int effectiveZoom = (zoom != null && zoom > 0) ? Math.max(zoom, zoomFromBounds) : zoomFromBounds;
-            double cellDeg = cellDegForZoom(effectiveZoom);
-            var cells = storage.getMapCellsInBounds(userId, minLat, maxLat, minLon, maxLon, cellDeg);
+            List<MapCellRow> cells;
+            if (storage.hasPostGIS()) {
+                double epsMeters = epsMetersForZoom(effectiveZoom);
+                cells = storage.getMapCellsInBoundsDistance(userId, minLat, maxLat, minLon, maxLon, epsMeters);
+            } else {
+                double cellDeg = cellDegForZoom(effectiveZoom);
+                cells = storage.getMapCellsInBounds(userId, minLat, maxLat, minLon, maxLon, cellDeg);
+            }
             LOGGER.info("API /positions map-view: userId={} bounds=[{},{},{},{}] zoom={} effectiveZoom={} -> {} cells from DB",
                     userId, minLat, maxLat, minLon, maxLon, zoom, effectiveZoom, cells.size());
             PositionsMapResponse mapResponse = mapCellsToResponse(cells);
@@ -215,8 +230,14 @@ public class PositionResource extends BaseResource {
         double maxLat = bounds.getMaxLat();
         double minLon = bounds.getMinLon();
         double maxLon = bounds.getMaxLon();
-        double cellDeg = cellDegForZoom(zoom);
-        var cells = storage.getMapCellsInBounds(userId, minLat, maxLat, minLon, maxLon, cellDeg);
+        List<MapCellRow> cells;
+        if (storage.hasPostGIS()) {
+            double epsMeters = epsMetersForZoom(zoom);
+            cells = storage.getMapCellsInBoundsDistance(userId, minLat, maxLat, minLon, maxLon, epsMeters);
+        } else {
+            double cellDeg = cellDegForZoom(zoom);
+            cells = storage.getMapCellsInBounds(userId, minLat, maxLat, minLon, maxLon, cellDeg);
+        }
         PositionsMapResponse plot = mapCellsToResponse(cells);
         MapInitialResponse response = new MapInitialResponse();
         response.setMinLat(minLat);

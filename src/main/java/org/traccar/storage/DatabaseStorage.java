@@ -339,6 +339,83 @@ public class DatabaseStorage extends Storage {
     }
 
     @Override
+    public boolean hasPostGIS() throws StorageException {
+        if (!databaseType.toLowerCase().contains("postgresql")) {
+            return false;
+        }
+        try {
+            String sql = "SELECT 1 FROM pg_extension WHERE extname = 'postgis'";
+            try (var conn = dataSource.getConnection();
+                 var st = conn.prepareStatement(sql);
+                 var rs = st.executeQuery()) {
+                return rs.next();
+            }
+        } catch (SQLException e) {
+            LOGGER.debug("hasPostGIS: check failed", e);
+            return false;
+        }
+    }
+
+    /** Approximate meters per degree at equator for WGS84 (used to convert eps meters → degrees). */
+    private static final double METERS_PER_DEGREE = 111_320.0;
+
+    @Override
+    public List<MapCellRow> getMapCellsInBoundsDistance(
+            long userId, double minLat, double maxLat, double minLon, double maxLon, double epsMeters) throws StorageException {
+        if (!databaseType.toLowerCase().contains("postgresql")) {
+            LOGGER.debug("getMapCellsInBoundsDistance: skipped (not PostgreSQL)");
+            return List.of();
+        }
+        try {
+            if (!hasPostGIS()) {
+                LOGGER.debug("getMapCellsInBoundsDistance: skipped (PostGIS not available)");
+                return List.of();
+            }
+            String posTable = getStorageName(Position.class);
+            String devTable = getStorageName(Device.class);
+            String permittedDevices = buildPermittedDeviceIdsSubquery();
+            double epsDegrees = epsMeters / METERS_PER_DEGREE;
+            String sql = "WITH latest AS ("
+                    + "  SELECT p.id, p.deviceid, p.latitude, p.longitude, p.course, d.name AS name, COALESCE(d.status, 'offline') AS status, d.category AS category "
+                    + "  FROM ("
+                    + "    SELECT DISTINCT ON (deviceid) id, deviceid, latitude, longitude, course FROM " + posTable
+                    + "    WHERE latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?"
+                    + "    AND deviceid IN (" + permittedDevices + ")"
+                    + "    ORDER BY deviceid, fixtime DESC"
+                    + "  ) p INNER JOIN " + devTable + " d ON d.id = p.deviceid"
+                    + "),"
+                    + " with_geom AS ("
+                    + "  SELECT *, ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geometry AS geom FROM latest"
+                    + "),"
+                    + " with_cluster AS ("
+                    + "  SELECT *, COALESCE("
+                    + "    ST_ClusterDBSCAN(geom, ?::double precision, 1) OVER (ORDER BY id),"
+                    + "    -ROW_NUMBER() OVER (ORDER BY id)"
+                    + "  ) AS cluster_id FROM with_geom"
+                    + ")"
+                    + " SELECT COUNT(*) AS count, AVG(latitude) AS latitude, AVG(longitude) AS longitude,"
+                    + " MIN(id) AS id, MIN(deviceid) AS deviceid, MIN(course) AS course, MIN(name) AS name, MIN(status) AS status, MIN(category) AS category"
+                    + " FROM with_cluster GROUP BY cluster_id";
+            var builder = QueryBuilder.create(config, dataSource, objectMapper, sql);
+            builder.setDouble(0, minLat);
+            builder.setDouble(1, maxLat);
+            builder.setDouble(2, minLon);
+            builder.setDouble(3, maxLon);
+            builder.setLong(4, userId);
+            builder.setLong(5, userId);
+            builder.setDouble(6, epsDegrees);
+            try (var stream = builder.executeQueryStreamed(MapCellRow.class)) {
+                var list = stream.toList();
+                LOGGER.debug("getMapCellsInBoundsDistance: user {} -> {} clusters from DB", userId, list.size());
+                return list;
+            }
+        } catch (SQLException e) {
+            LOGGER.warn("getMapCellsInBoundsDistance: query failed", e);
+            throw new StorageException(e);
+        }
+    }
+
+    @Override
     public MapBoundsRow getMapBoundsForUser(long userId) throws StorageException {
         if (!databaseType.toLowerCase().contains("postgresql")) {
             return null;

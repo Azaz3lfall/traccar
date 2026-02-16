@@ -94,4 +94,21 @@ public abstract class Storage {
         return Collections.emptyList();
     }
 
+    /**
+     * True if the database has PostGIS extension (for distance-based clustering).
+     */
+    public boolean hasPostGIS() throws StorageException {
+        return false;
+    }
+
+    /**
+     * Returns one row per distance-based cluster (PostGIS ST_ClusterDBSCAN).
+     * Points within epsMeters are in the same cluster; result shape same as getMapCellsInBounds.
+     * Implemented only for PostgreSQL with PostGIS. Others return empty list.
+     */
+    public List<MapCellRow> getMapCellsInBoundsDistance(
+            long userId, double minLat, double maxLat, double minLon, double maxLon, double epsMeters) throws StorageException {
+        return Collections.emptyList();
+    }
+
 }
