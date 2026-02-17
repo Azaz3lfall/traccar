@@ -13,7 +13,8 @@ import argparse
 import sys
 import urllib.parse
 
-# Multi-city: São Paulo metro + Guarulhos, Barueri, Campinas, Valinhos, Embu das Artes, Jundiaí, Arujá, Poá, Mauá
+# Multi-city: São Paulo metro + Guarulhos, Barueri, Campinas, Valinhos, Embu das Artes, Jundiaí, Arujá, Poá, Mauá,
+# Suzano, Jundiapeba, Mogi das Cruzes, Francisco Morato, Bragança Paulista
 # Each (south, north, west, east) – devices spawn in one random city and wander within it
 LAND_BOXES = [
     (-23.88, -23.40, -46.82, -46.38),   # São Paulo (município)
@@ -26,6 +27,11 @@ LAND_BOXES = [
     (-23.40, -23.35, -46.38, -46.32),   # Arujá
     (-23.54, -23.51, -46.38, -46.34),   # Poá
     (-23.68, -23.62, -46.48, -46.42),   # Mauá
+    (-23.56, -23.50, -46.35, -46.28),   # Suzano
+    (-23.58, -23.52, -46.25, -46.18),   # Jundiapeba
+    (-23.58, -23.50, -46.25, -46.15),   # Mogi das Cruzes
+    (-23.30, -23.25, -46.75, -46.68),   # Francisco Morato
+    (-22.98, -22.90, -46.58, -46.50),   # Bragança Paulista
 ]
 
 
