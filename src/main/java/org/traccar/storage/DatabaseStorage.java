@@ -36,7 +36,9 @@ import org.traccar.storage.query.Request;
 import jakarta.inject.Inject;
 import javax.sql.DataSource;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.function.Function;
@@ -411,6 +413,140 @@ public class DatabaseStorage extends Storage {
             }
         } catch (SQLException e) {
             LOGGER.warn("getMapCellsInBoundsDistance: query failed", e);
+            throw new StorageException(e);
+        }
+    }
+
+    @Override
+    public Stream<Device> getDevicesWithFilters(
+            long userId, Columns columns, boolean skipPermissionFilter, Long groupId, String status, String search,
+            Date lastUpdateFrom, Date lastUpdateTo, String sortBy, boolean sortDescending,
+            int offset, int limit) throws StorageException {
+        if (!databaseType.toLowerCase().contains("postgresql")) {
+            LOGGER.debug("getDevicesWithFilters: skipped (not PostgreSQL)");
+            return Stream.empty();
+        }
+        try {
+            String devTable = getStorageName(Device.class);
+            
+            // Build SELECT clause
+            StringBuilder sql = new StringBuilder("SELECT ");
+            if (columns instanceof Columns.All) {
+                sql.append("d.*");
+            } else {
+                List<String> columnList = columns.getColumns(Device.class, "set");
+                if (columnList.isEmpty()) {
+                    sql.append("d.*");
+                } else {
+                    sql.append(formatColumns(columnList, c -> "d." + c));
+                }
+            }
+            sql.append(" FROM ").append(devTable).append(" d");
+            
+            List<Object> params = new ArrayList<>();
+            int paramIndex = 0;
+            
+            // Permission filter (skip if admin + all=true)
+            if (!skipPermissionFilter) {
+                String permittedDevices = buildPermittedDeviceIdsSubquery();
+                sql.append(" WHERE d.id IN (").append(permittedDevices).append(")");
+                // Permission params (userId x2)
+                params.add(userId);
+                params.add(userId);
+                paramIndex += 2;
+            } else {
+                sql.append(" WHERE 1=1");
+            }
+            
+            // groupId filter
+            if (groupId != null) {
+                sql.append(" AND d.groupid = ?");
+                params.add(groupId);
+                paramIndex++;
+            }
+            
+            // status filter
+            boolean isNrStatus = status != null && !status.isEmpty() && "nr".equalsIgnoreCase(status);
+            if (status != null && !status.isEmpty() && !isNrStatus) {
+                sql.append(" AND COALESCE(d.status, 'offline') = ?");
+                params.add(status.toLowerCase());
+                paramIndex++;
+            }
+            
+            // lastUpdate filters (skip if status="NR")
+            if (!isNrStatus) {
+                if (lastUpdateFrom != null) {
+                    sql.append(" AND d.lastupdate >= ?");
+                    params.add(new Timestamp(lastUpdateFrom.getTime()));
+                    paramIndex++;
+                }
+                if (lastUpdateTo != null) {
+                    sql.append(" AND d.lastupdate <= ?");
+                    params.add(new Timestamp(lastUpdateTo.getTime()));
+                    paramIndex++;
+                }
+            }
+            
+            // "NR" status filter (null lastUpdate)
+            if (isNrStatus) {
+                sql.append(" AND d.lastupdate IS NULL");
+            }
+            
+            // search filter (name + uniqueId)
+            if (search != null && !search.isEmpty()) {
+                String searchPattern = "%" + search + "%";
+                sql.append(" AND (LOWER(d.name) LIKE LOWER(?) OR LOWER(d.uniqueid) LIKE LOWER(?))");
+                params.add(searchPattern);
+                params.add(searchPattern);
+                paramIndex += 2;
+            }
+            
+            // ORDER BY
+            sql.append(" ORDER BY ");
+            if (sortBy != null && !sortBy.isEmpty()) {
+                String sortByLower = sortBy.toLowerCase();
+                switch (sortByLower) {
+                    case "name":
+                        sql.append("d.name");
+                        break;
+                    case "uniqueid":
+                        sql.append("d.uniqueid");
+                        break;
+                    case "groupid":
+                        sql.append("d.groupid");
+                        break;
+                    case "status":
+                        sql.append("COALESCE(d.status, 'offline')");
+                        break;
+                    case "lastupdate":
+                        sql.append("d.lastupdate");
+                        break;
+                    default:
+                        sql.append("d.name");
+                }
+                sql.append(sortDescending ? " DESC" : " ASC");
+                if ("lastupdate".equals(sortByLower)) {
+                    sql.append(sortDescending ? " NULLS FIRST" : " NULLS LAST");
+                }
+            } else {
+                sql.append("d.name ASC");
+            }
+            
+            // LIMIT/OFFSET
+            if (limit > 0) {
+                sql.append(" LIMIT ? OFFSET ?");
+                params.add(limit);
+                params.add(offset);
+            }
+            
+            var builder = QueryBuilder.create(config, dataSource, objectMapper, sql.toString());
+            for (int i = 0; i < params.size(); i++) {
+                builder.setValue(i, params.get(i));
+            }
+            
+            return builder.executeQueryStreamed(Device.class);
+        } catch (SQLException e) {
+            LOGGER.warn("getDevicesWithFilters: query failed", e);
             throw new StorageException(e);
         }
     }

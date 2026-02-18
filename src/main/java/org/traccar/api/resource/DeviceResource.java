@@ -119,7 +119,13 @@ public class DeviceResource extends BaseObjectResource<Device> {
             @QueryParam("excludeAttributes") boolean excludeAttributes,
             @QueryParam("offset") int offset,
             @QueryParam("limit") int limit,
-            @QueryParam("search") String search) throws StorageException {
+            @QueryParam("search") String search,
+            @QueryParam("groupId") Long groupId,
+            @QueryParam("status") String status,
+            @QueryParam("sortBy") String sortBy,
+            @QueryParam("sortOrder") String sortOrder,
+            @QueryParam("lastUpdateFrom") Date lastUpdateFrom,
+            @QueryParam("lastUpdateTo") Date lastUpdateTo) throws StorageException {
 
         Columns columns = excludeAttributes ? new Columns.Exclude("attributes") : new Columns.All();
 
@@ -144,36 +150,117 @@ public class DeviceResource extends BaseObjectResource<Device> {
 
         } else {
 
-            var conditions = new LinkedList<Condition>();
+            // Check if new filters are used
+            boolean useNewFilters = groupId != null || status != null || 
+                                   lastUpdateFrom != null || lastUpdateTo != null || 
+                                   (sortBy != null && !sortBy.isEmpty());
 
-            if (all) {
-                if (permissionsService.notAdmin(getUserId())) {
-                    conditions.add(new Condition.Permission(User.class, getUserId(), baseClass));
+            if (useNewFilters) {
+                // NEW CODE PATH: Use getDevicesWithFilters() for DB-level filtering
+                
+                // Validate status
+                if (status != null && !status.isEmpty()) {
+                    String statusLower = status.toLowerCase();
+                    if (!statusLower.equals("online") && !statusLower.equals("offline") && 
+                        !statusLower.equals("unknown") && !statusLower.equals("nr")) {
+                        return Response.status(Response.Status.BAD_REQUEST)
+                            .entity("Invalid status. Must be: online, offline, unknown, or NR")
+                            .build();
+                    }
                 }
-            } else {
-                if (userId == 0) {
-                    conditions.add(new Condition.Permission(User.class, getUserId(), baseClass));
+                
+                // Validate sortBy
+                if (sortBy != null && !sortBy.isEmpty()) {
+                    String sortByLower = sortBy.toLowerCase();
+                    if (!sortByLower.equals("name") && !sortByLower.equals("uniqueid") && 
+                        !sortByLower.equals("groupid") && !sortByLower.equals("status") && 
+                        !sortByLower.equals("lastupdate")) {
+                        return Response.status(Response.Status.BAD_REQUEST)
+                            .entity("Invalid sortBy. Must be: name, uniqueId, groupId, status, or lastUpdate")
+                            .build();
+                    }
+                }
+                
+                // Parse sortOrder
+                boolean sortDescending = "desc".equalsIgnoreCase(sortOrder);
+                
+                // Determine effective userId and whether to skip permission filter
+                long effectiveUserId = userId;
+                boolean skipPermissionFilter = false;
+                if (all) {
+                    if (permissionsService.notAdmin(getUserId())) {
+                        effectiveUserId = getUserId();
+                    } else {
+                        // Admin can see all devices when all=true
+                        skipPermissionFilter = true;
+                        effectiveUserId = getUserId(); // Still needed for potential future use
+                    }
                 } else {
-                    permissionsService.checkUser(getUserId(), userId);
-                    conditions.add(new Condition.Permission(User.class, userId, baseClass).excludeGroups());
+                    if (userId == 0) {
+                        effectiveUserId = getUserId();
+                    } else {
+                        permissionsService.checkUser(getUserId(), userId);
+                        effectiveUserId = userId;
+                    }
                 }
-            }
-
-            if (offset > 0 || limit > 0) {
-                long totalElements;
-                try (Stream<Device> stream = getFilteredStream(columns, conditions, search)) {
-                    totalElements = stream.count();
+                
+                // Get total count for pagination
+                long totalElements = 0;
+                if (offset > 0 || limit > 0) {
+                    try (Stream<Device> countStream = storage.getDevicesWithFilters(
+                        effectiveUserId, columns, skipPermissionFilter, groupId, status, search,
+                        lastUpdateFrom, lastUpdateTo, sortBy, sortDescending, 0, 0)) {
+                        totalElements = countStream.count();
+                    }
                 }
+                
+                // Get filtered devices
                 List<Device> content;
-                try (Stream<Device> stream = getFilteredStream(columns, conditions, search)) {
-                    content = stream
-                            .skip(offset)
-                            .limit(limit > 0 ? limit : Long.MAX_VALUE)
-                            .collect(Collectors.toList());
+                try (Stream<Device> stream = storage.getDevicesWithFilters(
+                    effectiveUserId, columns, skipPermissionFilter, groupId, status, search,
+                    lastUpdateFrom, lastUpdateTo, sortBy, sortDescending, offset, limit)) {
+                    content = stream.toList();
                 }
-                return Response.ok(new Page<>(content, totalElements, offset, limit)).build();
+                
+                if (offset > 0 || limit > 0) {
+                    return Response.ok(new Page<>(content, totalElements, offset, limit)).build();
+                } else {
+                    return Response.ok(content).build();
+                }
+                
             } else {
-                return Response.ok(getFilteredStream(columns, conditions, search)).build();
+                // EXISTING CODE PATH: Backward compatible
+                var conditions = new LinkedList<Condition>();
+
+                if (all) {
+                    if (permissionsService.notAdmin(getUserId())) {
+                        conditions.add(new Condition.Permission(User.class, getUserId(), baseClass));
+                    }
+                } else {
+                    if (userId == 0) {
+                        conditions.add(new Condition.Permission(User.class, getUserId(), baseClass));
+                    } else {
+                        permissionsService.checkUser(getUserId(), userId);
+                        conditions.add(new Condition.Permission(User.class, userId, baseClass).excludeGroups());
+                    }
+                }
+
+                if (offset > 0 || limit > 0) {
+                    long totalElements;
+                    try (Stream<Device> stream = getFilteredStream(columns, conditions, search)) {
+                        totalElements = stream.count();
+                    }
+                    List<Device> content;
+                    try (Stream<Device> stream = getFilteredStream(columns, conditions, search)) {
+                        content = stream
+                                .skip(offset)
+                                .limit(limit > 0 ? limit : Long.MAX_VALUE)
+                                .collect(Collectors.toList());
+                    }
+                    return Response.ok(new Page<>(content, totalElements, offset, limit)).build();
+                } else {
+                    return Response.ok(getFilteredStream(columns, conditions, search)).build();
+                }
             }
 
         }

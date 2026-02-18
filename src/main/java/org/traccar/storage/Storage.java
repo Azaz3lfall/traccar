@@ -16,14 +16,17 @@
 package org.traccar.storage;
 
 import org.traccar.model.BaseModel;
+import org.traccar.model.Device;
 import org.traccar.model.MapBoundsRow;
 import org.traccar.model.MapCellRow;
 import org.traccar.model.Permission;
 import org.traccar.model.PositionMapItem;
 import org.traccar.model.PositionWithDevice;
+import org.traccar.storage.query.Columns;
 import org.traccar.storage.query.Request;
 
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -109,6 +112,19 @@ public abstract class Storage {
     public List<MapCellRow> getMapCellsInBoundsDistance(
             long userId, double minLat, double maxLat, double minLon, double maxLon, double epsMeters) throws StorageException {
         return Collections.emptyList();
+    }
+
+    /**
+     * Returns devices with advanced filtering (groupId, status, lastUpdate, search, sort).
+     * All filtering and sorting done at DB level (PostgreSQL). Others return empty stream.
+     * Status can be "online", "offline", "unknown", or "NR" (Never Reported = null lastUpdate).
+     * @param skipPermissionFilter if true, skip permission filtering (for admin + all=true case)
+     */
+    public Stream<Device> getDevicesWithFilters(
+            long userId, Columns columns, boolean skipPermissionFilter, Long groupId, String status, String search,
+            Date lastUpdateFrom, Date lastUpdateTo, String sortBy, boolean sortDescending,
+            int offset, int limit) throws StorageException {
+        return Stream.empty();
     }
 
 }
