@@ -184,9 +184,15 @@ public class PositionResource extends BaseResource {
                 Geofence geofence = geofenceId == 0 ? null : storage.getObject(Geofence.class, new Request(
                         new Columns.All(), new Condition.Equals("id", geofenceId)));
 
-                Stream<Position> stream = PositionUtil.getPositionsStream(storage, deviceId, from, to)
-                        .filter(position -> geofence == null || geofence.containsPosition(position));
-                return Response.ok(stream).build();
+                long userId = getUserId();
+                List<Position> cached = devicePositionsCache.get(userId, deviceId, from, to, geofenceId);
+                if (cached != null) {
+                    executorService.submit(() -> revalidateDevicePositionsRange(userId, deviceId, from, to, geofenceId, geofence));
+                    return Response.ok(cached).build();
+                }
+                List<Position> positions = loadPositionsRange(deviceId, from, to, geofence);
+                devicePositionsCache.put(userId, deviceId, from, to, geofenceId, positions);
+                return Response.ok(positions).build();
             } else {
                 long userId = getUserId();
                 List<Position> cached = devicePositionsCache.get(userId, deviceId);
@@ -224,12 +230,28 @@ public class PositionResource extends BaseResource {
         }
     }
 
+    private List<Position> loadPositionsRange(long deviceId, Date from, Date to, Geofence geofence) throws StorageException {
+        try (Stream<Position> stream = PositionUtil.getPositionsStream(storage, deviceId, from, to)
+                .filter(p -> geofence == null || geofence.containsPosition(p))) {
+            return stream.toList();
+        }
+    }
+
     private void revalidateDevicePositions(long userId, long deviceId) {
         try {
             List<Position> positions = loadLatestPositions(deviceId);
             devicePositionsCache.put(userId, deviceId, positions);
         } catch (Exception e) {
             LOGGER.warn("Background revalidation of positions for device {} failed", deviceId, e);
+        }
+    }
+
+    private void revalidateDevicePositionsRange(long userId, long deviceId, Date from, Date to, long geofenceId, Geofence geofence) {
+        try {
+            List<Position> positions = loadPositionsRange(deviceId, from, to, geofence);
+            devicePositionsCache.put(userId, deviceId, from, to, geofenceId, positions);
+        } catch (Exception e) {
+            LOGGER.warn("Background revalidation of positions range for device {} failed", deviceId, e);
         }
     }
 

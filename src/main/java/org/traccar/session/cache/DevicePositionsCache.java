@@ -18,13 +18,13 @@ package org.traccar.session.cache;
 import jakarta.inject.Singleton;
 import org.traccar.model.Position;
 
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Per-user, per-device cache for latest positions (GET /api/positions?deviceId=X).
- * Serves requests immediately from cache; revalidation is done in the background
- * by the caller (stale-while-revalidate). No streaming: responses are full lists.
+ * Per-user, per-device cache for positions: latest (no from/to) and range (from/to, optional geofence).
+ * Same rules: 5 min TTL, stale-while-revalidate, invalidate on new position for device.
  */
 @Singleton
 public class DevicePositionsCache {
@@ -37,21 +37,19 @@ public class DevicePositionsCache {
         }
     }
 
-    private static String key(long userId, long deviceId) {
+    private static String keyLatest(long userId, long deviceId) {
         return userId + ":" + deviceId;
+    }
+
+    private static String keyRange(long userId, long deviceId, Date from, Date to, long geofenceId) {
+        return userId + ":" + deviceId + ":" + from.getTime() + ":" + to.getTime() + ":" + geofenceId;
     }
 
     private final ConcurrentHashMap<String, Entry> cache = new ConcurrentHashMap<>();
 
-    /**
-     * Returns cached positions if present and not expired. Removes expired entry. Thread-safe.
-     */
-    public List<Position> get(long userId, long deviceId) {
-        String k = key(userId, deviceId);
+    private List<Position> getEntry(String k) {
         Entry entry = cache.get(k);
-        if (entry == null) {
-            return null;
-        }
+        if (entry == null) return null;
         long now = System.currentTimeMillis();
         if (entry.isExpired(now)) {
             cache.remove(k, entry);
@@ -60,18 +58,29 @@ public class DevicePositionsCache {
         return entry.positions();
     }
 
-    /**
-     * Stores positions for the user/device. Thread-safe.
-     */
+    /** Latest positions (no from/to). */
+    public List<Position> get(long userId, long deviceId) {
+        return getEntry(keyLatest(userId, deviceId));
+    }
+
+    /** Range positions (from/to, optional geofenceId). */
+    public List<Position> get(long userId, long deviceId, Date from, Date to, long geofenceId) {
+        return getEntry(keyRange(userId, deviceId, from, to, geofenceId));
+    }
+
     public void put(long userId, long deviceId, List<Position> positions) {
-        cache.put(key(userId, deviceId), new Entry(positions, System.currentTimeMillis()));
+        cache.put(keyLatest(userId, deviceId), new Entry(positions, System.currentTimeMillis()));
+    }
+
+    public void put(long userId, long deviceId, Date from, Date to, long geofenceId, List<Position> positions) {
+        cache.put(keyRange(userId, deviceId, from, to, geofenceId), new Entry(positions, System.currentTimeMillis()));
     }
 
     /**
      * Removes all cached entries for the given device (e.g. after a new position is stored).
      */
     public void invalidateByDeviceId(long deviceId) {
-        String suffix = ":" + deviceId;
-        cache.keySet().removeIf(k -> k.endsWith(suffix));
+        String withColon = ":" + deviceId;
+        cache.keySet().removeIf(k -> k.contains(withColon + ":") || k.endsWith(withColon));
     }
 }
