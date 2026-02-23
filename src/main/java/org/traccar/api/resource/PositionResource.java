@@ -118,6 +118,19 @@ public class PositionResource extends BaseResource {
         return CLUSTER_PIXEL_SIZE * EARTH_CIRCUMFERENCE_M / (256.0 * (1 << z));
     }
 
+    /** Expand bounds by factor on each side (e.g. 0.25 = 25% each side). Lat clamped to [-90,90], lon to [-180,180]. */
+    private static Bounds expandBounds(double minLat, double maxLat, double minLon, double maxLon, double factor) {
+        double latSpan = maxLat - minLat;
+        double lonSpan = maxLon - minLon;
+        double minLatExp = Math.max(-90, minLat - factor * latSpan);
+        double maxLatExp = Math.min(90, maxLat + factor * latSpan);
+        double minLonExp = Math.max(-180, minLon - factor * lonSpan);
+        double maxLonExp = Math.min(180, maxLon + factor * lonSpan);
+        return new Bounds(minLatExp, maxLatExp, minLonExp, maxLonExp);
+    }
+
+    private record Bounds(double minLat, double maxLat, double minLon, double maxLon) {}
+
     @GET
     public Response get(
             @QueryParam("deviceId") long deviceId, @QueryParam("id") List<Long> positionIds,
@@ -130,6 +143,7 @@ public class PositionResource extends BaseResource {
                 && positionIds.isEmpty() && deviceId <= 0 && from == null && to == null;
         if (mapView) {
             long userId = getUserId();
+            Bounds expanded = expandBounds(minLat, maxLat, minLon, maxLon, 0.25);
             double lonSpan = maxLon - minLon;
             int zoomFromBounds = zoomFromLonSpan(lonSpan);
             int effectiveZoom = (zoom != null && zoom >= 0)
@@ -138,13 +152,13 @@ public class PositionResource extends BaseResource {
             List<MapCellRow> cells;
             if (storage.hasPostGIS()) {
                 double epsMeters = epsMetersForZoom(effectiveZoom);
-                cells = storage.getMapCellsInBoundsDistance(userId, minLat, maxLat, minLon, maxLon, epsMeters);
+                cells = storage.getMapCellsInBoundsDistance(userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(), epsMeters);
             } else {
                 double cellDeg = cellDegForZoom(effectiveZoom);
-                cells = storage.getMapCellsInBounds(userId, minLat, maxLat, minLon, maxLon, cellDeg);
+                cells = storage.getMapCellsInBounds(userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(), cellDeg);
             }
-            LOGGER.info("API /positions map-view: userId={} bounds=[{},{},{},{}] zoom={} effectiveZoom={} -> {} cells from DB",
-                    userId, minLat, maxLat, minLon, maxLon, zoom, effectiveZoom, cells.size());
+            LOGGER.info("API /positions map-view: userId={} bounds=[{},{},{},{}] expanded -> {} cells from DB",
+                    userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(), cells.size());
             PositionsMapResponse mapResponse = mapCellsToResponse(cells);
             return Response.ok(mapResponse).build();
         }
@@ -274,28 +288,29 @@ public class PositionResource extends BaseResource {
         double maxLat = bounds.getMaxLat();
         double minLon = bounds.getMinLon();
         double maxLon = bounds.getMaxLon();
+        Bounds expanded = expandBounds(minLat, maxLat, minLon, maxLon, 0.25);
         int zoomForClustering = zoom >= NO_CLUSTER_ZOOM_THRESHOLD ? 22 : zoom;
         List<MapCellRow> cells;
         if (storage.hasPostGIS()) {
             double epsMeters = epsMetersForZoom(zoomForClustering);
-            cells = storage.getMapCellsInBoundsDistance(userId, minLat, maxLat, minLon, maxLon, epsMeters);
+            cells = storage.getMapCellsInBoundsDistance(userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(), epsMeters);
         } else {
             double cellDeg = cellDegForZoom(zoomForClustering);
-            cells = storage.getMapCellsInBounds(userId, minLat, maxLat, minLon, maxLon, cellDeg);
+            cells = storage.getMapCellsInBounds(userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(), cellDeg);
         }
         PositionsMapResponse plot = mapCellsToResponse(cells);
         MapInitialResponse response = new MapInitialResponse();
-        response.setMinLat(minLat);
-        response.setMaxLat(maxLat);
-        response.setMinLon(minLon);
-        response.setMaxLon(maxLon);
+        response.setMinLat(expanded.minLat());
+        response.setMaxLat(expanded.maxLat());
+        response.setMinLon(expanded.minLon());
+        response.setMaxLon(expanded.maxLon());
         response.setZoom(zoom);
         response.setDeviceCount((int) bounds.getDeviceCount());
         response.setPositions(plot.getPositions());
         response.setClusters(plot.getClusters());
         mapInitialCache.put(userId, response);
         LOGGER.info("API /positions/map: userId={} -> bounds [{},{},{},{}] zoom={} deviceCount={} positions={} clusters={}",
-                userId, minLat, maxLat, minLon, maxLon, zoom, response.getDeviceCount(),
+                userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(), zoom, response.getDeviceCount(),
                 plot.getPositions().size(), plot.getClusters().size());
         return Response.ok(response).build();
     }
