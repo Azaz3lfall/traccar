@@ -118,7 +118,7 @@ public class PositionResource extends BaseResource {
         return CLUSTER_PIXEL_SIZE * EARTH_CIRCUMFERENCE_M / (256.0 * (1 << z));
     }
 
-    /** Expand bounds by factor on each side (e.g. 0.25 = 25% each side). Lat clamped to [-90,90], lon to [-180,180]. */
+    /** Expand bounds by factor on each side (e.g. 0.5 = 50% each side). Lat clamped to [-90,90], lon to [-180,180]. */
     private static Bounds expandBounds(double minLat, double maxLat, double minLon, double maxLon, double factor) {
         double latSpan = maxLat - minLat;
         double lonSpan = maxLon - minLon;
@@ -131,19 +131,24 @@ public class PositionResource extends BaseResource {
 
     private record Bounds(double minLat, double maxLat, double minLon, double maxLon) {}
 
+    /** Default expand factor (50% each side) when not provided by client. */
+    private static final double DEFAULT_EXPAND_FACTOR = 0.5;
+
     @GET
     public Response get(
             @QueryParam("deviceId") long deviceId, @QueryParam("id") List<Long> positionIds,
             @QueryParam("geofenceId") long geofenceId, @QueryParam("from") Date from, @QueryParam("to") Date to,
             @QueryParam("minLat") Double minLat, @QueryParam("maxLat") Double maxLat,
             @QueryParam("minLon") Double minLon, @QueryParam("maxLon") Double maxLon,
-            @QueryParam("zoom") Integer zoom)
+            @QueryParam("zoom") Integer zoom,
+            @QueryParam("expandFactor") Double expandFactor)
             throws StorageException {
         boolean mapView = minLat != null && maxLat != null && minLon != null && maxLon != null
                 && positionIds.isEmpty() && deviceId <= 0 && from == null && to == null;
         if (mapView) {
             long userId = getUserId();
-            Bounds expanded = expandBounds(minLat, maxLat, minLon, maxLon, 0.25);
+            double factor = expandFactor != null ? Math.max(0, Math.min(2, expandFactor)) : DEFAULT_EXPAND_FACTOR;
+            Bounds expanded = expandBounds(minLat, maxLat, minLon, maxLon, factor);
             double lonSpan = maxLon - minLon;
             int zoomFromBounds = zoomFromLonSpan(lonSpan);
             int effectiveZoom = (zoom != null && zoom >= 0)
@@ -257,7 +262,7 @@ public class PositionResource extends BaseResource {
      */
     @Path("map")
     @GET
-    public Response getMapInitial() throws StorageException {
+    public Response getMapInitial(@QueryParam("expandFactor") Double expandFactor) throws StorageException {
         long userId = getUserId();
         MapInitialResponse cached = mapInitialCache.get(userId);
         if (cached != null) {
@@ -288,7 +293,8 @@ public class PositionResource extends BaseResource {
         double maxLat = bounds.getMaxLat();
         double minLon = bounds.getMinLon();
         double maxLon = bounds.getMaxLon();
-        Bounds expanded = expandBounds(minLat, maxLat, minLon, maxLon, 0.25);
+        double factor = expandFactor != null ? Math.max(0, Math.min(2, expandFactor)) : DEFAULT_EXPAND_FACTOR;
+        Bounds expanded = expandBounds(minLat, maxLat, minLon, maxLon, factor);
         int zoomForClustering = zoom >= NO_CLUSTER_ZOOM_THRESHOLD ? 22 : zoom;
         List<MapCellRow> cells;
         if (storage.hasPostGIS()) {
