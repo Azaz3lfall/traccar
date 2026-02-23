@@ -20,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traccar.database.StatisticsManager;
 import org.traccar.model.Position;
+import org.traccar.session.cache.DevicePositionsCache;
 import org.traccar.storage.Storage;
 import org.traccar.storage.query.Columns;
 import org.traccar.storage.query.Request;
@@ -30,11 +31,14 @@ public class DatabaseHandler extends BasePositionHandler {
 
     private final Storage storage;
     private final StatisticsManager statisticsManager;
+    private final DevicePositionsCache devicePositionsCache;
 
     @Inject
-    public DatabaseHandler(Storage storage, StatisticsManager statisticsManager) {
+    public DatabaseHandler(Storage storage, StatisticsManager statisticsManager,
+            DevicePositionsCache devicePositionsCache) {
         this.storage = storage;
         this.statisticsManager = statisticsManager;
+        this.devicePositionsCache = devicePositionsCache;
     }
 
     @Override
@@ -43,6 +47,7 @@ public class DatabaseHandler extends BasePositionHandler {
         try {
             position.setId(storage.addObject(position, new Request(new Columns.Exclude("id"))));
             statisticsManager.registerMessageStored(position.getDeviceId(), position.getProtocol());
+            devicePositionsCache.invalidateByDeviceId(position.getDeviceId());
         } catch (Exception error) {
             LOGGER.warn("Failed to store position", error);
         }

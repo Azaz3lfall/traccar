@@ -34,6 +34,7 @@ import org.traccar.reports.CsvExportProvider;
 import org.traccar.reports.GpxExportProvider;
 import org.traccar.reports.KmlExportProvider;
 import org.traccar.session.cache.CacheManager;
+import org.traccar.session.cache.DevicePositionsCache;
 import org.traccar.session.cache.MapInitialCache;
 import org.traccar.storage.StorageException;
 import org.traccar.storage.query.Columns;
@@ -58,6 +59,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Stream;
 
 @Path("positions")
@@ -84,6 +86,12 @@ public class PositionResource extends BaseResource {
 
     @Inject
     private MapInitialCache mapInitialCache;
+
+    @Inject
+    private DevicePositionsCache devicePositionsCache;
+
+    @Inject
+    private ExecutorService executorService;
 
     private static final int CLUSTER_PIXEL_SIZE = 40;
 
@@ -161,10 +169,16 @@ public class PositionResource extends BaseResource {
                         .filter(position -> geofence == null || geofence.containsPosition(position));
                 return Response.ok(stream).build();
             } else {
-                String turbo = permissionsService.getServer().getString("position.turbo", "24 hours");
-                Stream<Position> stream = storage.getObjectsStream(Position.class, new Request(
-                        new Columns.All(), new Condition.LatestPositions(deviceId, 0, turbo)));
-                return Response.ok(stream).build();
+                long userId = getUserId();
+                List<Position> cached = devicePositionsCache.get(userId, deviceId);
+                if (cached != null) {
+                    executorService.submit(() -> revalidateDevicePositions(userId, deviceId));
+                    return Response.ok(cached).build();
+                }
+                List<Position> positions = loadLatestPositions(deviceId);
+                LOGGER.info("API /positions?deviceId={}: cache miss, loaded from DB ({} positions)", deviceId, positions.size());
+                devicePositionsCache.put(userId, deviceId, positions);
+                return Response.ok(positions).build();
             }
         } else {
             var userId = getUserId();
@@ -180,6 +194,23 @@ public class PositionResource extends BaseResource {
             }
             LOGGER.info("API /positions: Returning {} positions from MEMORY cache.", positions.size());
             return Response.ok(positions.stream()).build();
+        }
+    }
+
+    private List<Position> loadLatestPositions(long deviceId) throws StorageException {
+        String turbo = permissionsService.getServer().getString("position.turbo", "24 hours");
+        try (Stream<Position> stream = storage.getObjectsStream(Position.class, new Request(
+                new Columns.All(), new Condition.LatestPositions(deviceId, 0, turbo)))) {
+            return stream.toList();
+        }
+    }
+
+    private void revalidateDevicePositions(long userId, long deviceId) {
+        try {
+            List<Position> positions = loadLatestPositions(deviceId);
+            devicePositionsCache.put(userId, deviceId, positions);
+        } catch (Exception e) {
+            LOGGER.warn("Background revalidation of positions for device {} failed", deviceId, e);
         }
     }
 
