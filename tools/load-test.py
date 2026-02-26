@@ -1226,6 +1226,8 @@ async def main():
     parser.add_argument("--concurrency", type=int, default=20, help="Concurrent workers")
     parser.add_argument("--close", action="store_true", help="Close connection after each report")
     parser.add_argument("--max-rps", type=float, default=None, help="Cap reports per second (global)")
+    parser.add_argument("--max-open-files", type=int, default=65535,
+                        help="Cap concurrent open connections (default 65535). Use e.g. 800 for OpenVZ with 1024 limit to avoid Errno 24.")
     parser.add_argument("--imei-file", default="load-test-imeis.txt",
                         help="State file: imei,lat,lon,timestamp_sec,protocol (no header)")
     parser.add_argument("--device-list", default=None,
@@ -1278,6 +1280,7 @@ async def main():
     print(f"Host: {args.host}  Workers: {args.concurrency}  Close: {args.close}")
     if args.max_rps:
         print(f"Rate cap: {args.max_rps} rps")
+    print(f"Max open connections: {args.max_open_files}")
     print("Running continuous loop (Ctrl+C to stop)...\n")
 
     shutdown_event = asyncio.Event()

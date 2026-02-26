@@ -35,6 +35,7 @@ SuccessExitStatus=143
 WatchdogSec=600
 Restart=on-failure
 RestartSec=10
+LimitNOFILE=65535
 
 [Install]
 WantedBy=multi-user.target"
