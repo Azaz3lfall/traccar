@@ -8,6 +8,7 @@ import asyncio
 import math
 import os
 import random
+import signal
 import struct
 import time
 import argparse
@@ -198,7 +199,8 @@ class GT06Device:
                 self.disconnect()
             return True
         except Exception as e:
-            print(f"Send error (IMEI {self.imei}): {type(e).__name__}: {e}")
+            if not isinstance(e, ConnectionResetError):
+                print(f"Send error (IMEI {self.imei}): {type(e).__name__}: {e}")
             self.disconnect()
             return False
 
@@ -348,8 +350,9 @@ class OsmandDevice:
             return True
         except Exception as e:
             _err_prefix = getattr(self, "_log_prefix", "")
-            msg = f"Send error (id {self.device_id}): {type(e).__name__}: {e}"
-            print(f"[{_err_prefix}] {msg}" if _err_prefix else msg)
+            if not isinstance(e, ConnectionResetError):
+                msg = f"Send error (id {self.device_id}): {type(e).__name__}: {e}"
+                print(f"[{_err_prefix}] {msg}" if _err_prefix else msg)
             self.disconnect()
             return False
 
@@ -507,8 +510,9 @@ class TeltonikaDevice:
             return True
         except Exception as e:
             _err_prefix = getattr(self, "_log_prefix", "")
-            msg = f"Send error (IMEI {self.imei}): {type(e).__name__}: {e}"
-            print(f"[{_err_prefix}] {msg}" if _err_prefix else msg)
+            if not isinstance(e, ConnectionResetError):
+                msg = f"Send error (IMEI {self.imei}): {type(e).__name__}: {e}"
+                print(f"[{_err_prefix}] {msg}" if _err_prefix else msg)
             self.disconnect()
             return False
 
@@ -595,8 +599,9 @@ class MeiligaoDevice:
             return True
         except Exception as e:
             _err_prefix = getattr(self, "_log_prefix", "")
-            msg = f"Send error (id {self.device_id}): {type(e).__name__}: {e}"
-            print(f"[{_err_prefix}] {msg}" if _err_prefix else msg)
+            if not isinstance(e, ConnectionResetError):
+                msg = f"Send error (id {self.device_id}): {type(e).__name__}: {e}"
+                print(f"[{_err_prefix}] {msg}" if _err_prefix else msg)
             self.disconnect()
             return False
 
@@ -677,8 +682,9 @@ class RuptelaDevice:
             return True
         except Exception as e:
             _err_prefix = getattr(self, "_log_prefix", "")
-            msg = f"Send error (id {self.device_id}): {type(e).__name__}: {e}"
-            print(f"[{_err_prefix}] {msg}" if _err_prefix else msg)
+            if not isinstance(e, ConnectionResetError):
+                msg = f"Send error (id {self.device_id}): {type(e).__name__}: {e}"
+                print(f"[{_err_prefix}] {msg}" if _err_prefix else msg)
             self.disconnect()
             return False
 
@@ -739,8 +745,9 @@ class Gl200Device:
             return True
         except Exception as e:
             _err_prefix = getattr(self, "_log_prefix", "")
-            msg = f"Send error (id {self.device_id}): {type(e).__name__}: {e}"
-            print(f"[{_err_prefix}] {msg}" if _err_prefix else msg)
+            if not isinstance(e, ConnectionResetError):
+                msg = f"Send error (id {self.device_id}): {type(e).__name__}: {e}"
+                print(f"[{_err_prefix}] {msg}" if _err_prefix else msg)
             self.disconnect()
             return False
 
@@ -841,7 +848,8 @@ def load_state(path: str, protocol_list: list[str]) -> tuple[list[dict], bool]:
 def save_state(path: str, state: list[dict]) -> None:
     """
     Write full state to CSV (no header). Writes to temp then atomically renames.
-    Only replaces the real file if the temp has exactly len(state) lines, so we never overwrite with a truncated state.
+    Only replaces the real file if the temp has exactly len(state) lines.
+    Never overwrites the existing file if it has more lines than we're writing (prevents truncation).
     """
     expected = len(state)
     lines = [f"{d['imei']},{d['lat']:.6f},{d['lon']:.6f},{d['timestamp_sec']},{d['protocol']}" for d in state]
@@ -862,6 +870,20 @@ def save_state(path: str, state: list[dict]) -> None:
             except Exception:
                 pass
             return
+        # Never overwrite a file that has more lines (safety: avoid truncating e.g. after --close or bugs)
+        if os.path.exists(path):
+            try:
+                with open(path, "r") as f:
+                    current_lines = sum(1 for _ in f)
+                if current_lines > expected:
+                    try:
+                        os.unlink(tmp)
+                    except Exception:
+                        pass
+                    print(f"Warning: skipped save — file has {current_lines} devices, state has {expected}; not overwriting.")
+                    return
+            except Exception:
+                pass
         os.replace(tmp, path)
     except Exception:
         try:
@@ -918,8 +940,8 @@ def state_from_device_list(path: str, protocol_list: list[str]) -> list[dict]:
 
 async def send_one_report(device_state: dict, host: str, args, rate_limit_lock: asyncio.Lock | None, min_interval: float, last_send_time: list) -> bool:
     """
-    Create a protocol device instance with injected lat/lon/speed/course, connect (or reuse), send one report.
-    First send per device: close connection after. Resends: keep connection open (unless --close).
+    Send one report using pre-generated coordinates (coordinator already updated state and saved file).
+    Uses device_state lat/lon/course; does not update state after send.
     """
     proto_key = device_state["protocol"]
     if proto_key not in PROTOCOLS:
@@ -930,14 +952,14 @@ async def send_one_report(device_state: dict, host: str, args, rate_limit_lock: 
     device_id = device_state["imei"]
     lat = device_state["lat"]
     lon = device_state["lon"]
-    next_lat, next_lon, course_deg = next_position_near(lat, lon, MAX_MOVE_METERS)
+    course_deg = device_state.get("course", 0)
     speed = random.uniform(20, 80)
     device = device_class(device_id)
-    device.lat = next_lat
-    device.lon = next_lon
+    device.lat = lat
+    device.lon = lon
     device.speed = speed
     device.course = course_deg
-    device._box = (next_lat - 0.005, next_lat + 0.005, next_lon - 0.005, next_lon + 0.005)
+    device._box = (lat - 0.005, lat + 0.005, lon - 0.005, lon + 0.005)
     device._log_prefix = proto_key
     if proto_key == "osmand":
         device._host = host
@@ -977,9 +999,7 @@ async def send_one_report(device_state: dict, host: str, args, rate_limit_lock: 
         device_state.pop("_reader", None)
         device_state.pop("_serial", None)
         return False
-    device_state["lat"] = next_lat
-    device_state["lon"] = next_lon
-    device_state["timestamp_sec"] = int(time.time())
+    # State already updated by coordinator before this round; no partial update here
     if not close_after:
         device_state["_writer"] = device.writer
         device_state["_reader"] = getattr(device, "reader", None)
@@ -987,38 +1007,52 @@ async def send_one_report(device_state: dict, host: str, args, rate_limit_lock: 
     return True
 
 
-async def run_continuous_loop(state: list[dict], online_indices: list[int], state_file: str, args):
-    """Run forever: coordinator enqueues due devices, workers send with rate limit."""
+async def run_continuous_loop(state: list[dict], online_indices: list[int], state_file: str, args, shutdown_event: asyncio.Event):
+    """
+    Round-based: load (in memory) → generate all coordinates for due devices → save file once → then send.
+    No partial file updates during send; file is only written once per round after generating coords.
+    On Ctrl+C (shutdown_event set): stop loop and save state once in finally so file is not corrupted.
+    """
     report_interval = args.report_interval
     due_list = []
     due_lock = asyncio.Lock()
     rate_limit_lock = asyncio.Lock() if args.max_rps else None
     min_interval = 1.0 / args.max_rps if args.max_rps else 0.0
     last_send_time = [0.0]
-    persist_interval = 60
-    last_persist = [time.time()]
     stats = {"success": 0, "failed": 0}
 
     async def coordinator():
-        while True:
-            await asyncio.sleep(1)
+        while not shutdown_event.is_set():
+            try:
+                await asyncio.wait_for(asyncio.shield(shutdown_event.wait()), timeout=1.0)
+            except asyncio.TimeoutError:
+                pass
+            if shutdown_event.is_set():
+                break
             now = time.time()
+            due_set = set(due_list)
+            due_indices = [i for i in online_indices if now - state[i]["timestamp_sec"] >= report_interval and i not in due_set]
+            if not due_indices:
+                continue
+            # Generate all coordinates for this round, then save file once, then enqueue
+            for i in due_indices:
+                lat, lon = state[i]["lat"], state[i]["lon"]
+                next_lat, next_lon, course_deg = next_position_near(lat, lon, MAX_MOVE_METERS)
+                state[i]["lat"] = next_lat
+                state[i]["lon"] = next_lon
+                state[i]["timestamp_sec"] = int(now)
+                state[i]["course"] = course_deg
+            try:
+                save_state(state_file, state)
+            except Exception as e:
+                print(f"Persist failed: {e}")
+                continue
             async with due_lock:
-                due_set = set(due_list)
-                for i in online_indices:
-                    d = state[i]
-                    if now - d["timestamp_sec"] >= report_interval and i not in due_set:
-                        due_list.append(i)
-                        due_set.add(i)
-            if now - last_persist[0] >= persist_interval:
-                last_persist[0] = now
-                try:
-                    save_state(state_file, state)
-                except Exception as e:
-                    print(f"Persist failed: {e}")
+                for i in due_indices:
+                    due_list.append(i)
 
     async def worker():
-        while True:
+        while not shutdown_event.is_set():
             idx = None
             async with due_lock:
                 if due_list:
@@ -1039,7 +1073,31 @@ async def run_continuous_loop(state: list[dict], online_indices: list[int], stat
     num_workers = args.concurrency
     workers = [asyncio.create_task(worker()) for _ in range(num_workers)]
     coord = asyncio.create_task(coordinator())
-    await asyncio.gather(coord, *workers)
+
+    async def shutdown_waiter():
+        await shutdown_event.wait()
+        coord.cancel()
+        for w in workers:
+            w.cancel()
+
+    shutdown_task = asyncio.create_task(shutdown_waiter())
+    try:
+        await asyncio.gather(coord, *workers, shutdown_task)
+    except asyncio.CancelledError:
+        pass
+    finally:
+        # One final save on exit (Ctrl+C or cancel) so file is never left corrupted
+        try:
+            save_state(state_file, state)
+            print("\nState saved.")
+        except Exception as e:
+            print(f"\nSave on exit failed: {e}")
+        tmp_path = state_file + ".tmp"
+        if os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
 
 
 async def run_one_protocol(proto_key: str, host: str, device_ids: list[str], args) -> dict:
@@ -1192,6 +1250,8 @@ async def main():
     if state and not args.regenerate:
         # File exists and has devices: use it. Never overwrite.
         print(f"Resuming: {len(state)} devices from {state_file}")
+        if len(state) < args.devices:
+            print(f"Warning: file has {len(state)} devices but --devices is {args.devices}. To regenerate the list use: --regenerate --devices {args.devices}")
         if had_legacy:
             save_state(state_file, state)
             print("Upgraded file to new format (imei,lat,lon,timestamp_sec,protocol)")
@@ -1220,7 +1280,24 @@ async def main():
         print(f"Rate cap: {args.max_rps} rps")
     print("Running continuous loop (Ctrl+C to stop)...\n")
 
-    await run_continuous_loop(state, online_indices, state_file, args)
+    shutdown_event = asyncio.Event()
+
+    def on_shutdown(sig, frame):
+        shutdown_event.set()
+
+    signal.signal(signal.SIGINT, on_shutdown)
+    try:
+        signal.signal(signal.SIGTERM, on_shutdown)
+    except (ValueError, OSError):
+        pass  # SIGTERM not available on all platforms (e.g. Windows)
+    try:
+        await run_continuous_loop(state, online_indices, state_file, args, shutdown_event)
+    finally:
+        signal.signal(signal.SIGINT, signal.SIG_DFL)
+        try:
+            signal.signal(signal.SIGTERM, signal.SIG_DFL)
+        except (ValueError, OSError):
+            pass
 
 
 if __name__ == "__main__":

@@ -109,6 +109,8 @@ EOF
         sshpass -p "$REMOTE_PASS" scp -o StrictHostKeyChecking=no target/tracker-server.jar "$REMOTE_USER@$REMOTE_HOST:/tmp/"
         echo "   -> lib/ directory"
         sshpass -p "$REMOTE_PASS" scp -o StrictHostKeyChecking=no -r target/lib "$REMOTE_USER@$REMOTE_HOST:/tmp/"
+        echo "   -> tools/load-test.py, tools/conn-monitor.sh"
+        sshpass -p "$REMOTE_PASS" scp -o StrictHostKeyChecking=no tools/load-test.py tools/conn-monitor.sh "$REMOTE_USER@$REMOTE_HOST:/tmp/"
 
         # Update Service & Cleanup
         show_progress "Updating service and restarting traccar..."
@@ -119,8 +121,10 @@ EOF
         sshpass -p "$REMOTE_PASS" ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" << EOF
             sudo mv /tmp/tracker-server.jar /opt/traccar/
             sudo mv /tmp/lib /opt/traccar/
+            sudo mv /tmp/load-test.py /tmp/conn-monitor.sh /opt/traccar/
+            sudo chmod +x /opt/traccar/conn-monitor.sh
             sudo mv /tmp/traccar.service /etc/systemd/system/traccar.service
-            sudo chown -R root:root /opt/traccar/lib /opt/traccar/tracker-server.jar
+            sudo chown -R root:root /opt/traccar/lib /opt/traccar/tracker-server.jar /opt/traccar/load-test.py /opt/traccar/conn-monitor.sh
             sudo systemctl daemon-reload
             sudo systemctl restart traccar
 EOF
