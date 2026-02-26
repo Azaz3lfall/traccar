@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
 Multi-protocol load test for Traccar: GT06, Suntech, Osmand, Teltonika, TK103, Meiligao, Ruptela, GL200.
-One report per device; shared backoff, rate limit, and IMEI/device-id file.
-All selected protocols run in parallel (each IMEI → one protocol, round-robin).
+Continuous loop: each device sends every report_interval seconds; only online_pct% of devices are active.
+State file: imei,lat,lon,timestamp_sec,protocol (no header). Movement: max 500m per report, coherent positions.
 """
 import asyncio
 import math
+import os
 import random
 import struct
 import time
@@ -60,6 +61,33 @@ def wander_in_box(lat: float, lon: float, box) -> tuple:
     return new_lat, new_lon
 
 
+# Max distance per report (meters) so positions stay coherent
+MAX_MOVE_METERS = 500
+# Approx meters per degree at lat (for simple clamp)
+METERS_PER_DEG_LAT = 111_320
+def _meters_per_deg_lon(lat_deg: float) -> float:
+    return METERS_PER_DEG_LAT * math.cos(math.radians(lat_deg))
+
+
+def next_position_near(lat: float, lon: float, max_meters: float = MAX_MOVE_METERS) -> tuple:
+    """
+    Return (next_lat, next_lon, course_deg) with next point at most max_meters from (lat, lon).
+    Course: 0–360, 0=North, 90=East.
+    """
+    angle_rad = random.uniform(0, 2 * math.pi)
+    distance_m = random.uniform(50, max_meters)
+    m_per_deg_lat = METERS_PER_DEG_LAT
+    m_per_deg_lon = _meters_per_deg_lon(lat)
+    lat_delta = (distance_m / m_per_deg_lat) * math.cos(angle_rad)
+    lon_delta = (distance_m / m_per_deg_lon) * math.sin(angle_rad)
+    next_lat = max(-90, min(90, lat + lat_delta))
+    next_lon = max(-180, min(180, lon + lon_delta))
+    course_deg = math.degrees(math.atan2(lon_delta * m_per_deg_lon, lat_delta * m_per_deg_lat))
+    if course_deg < 0:
+        course_deg += 360
+    return next_lat, next_lon, course_deg
+
+
 # ---------------------------------------------------------------------------
 # GT06 (binary, port 5023)
 # ---------------------------------------------------------------------------
@@ -101,7 +129,7 @@ class GT06Protocol:
         satellites = 0x0C
         lat_val = int(abs(lat) * 60 * 30000)
         lon_val = int(abs(lon) * 60 * 30000)
-        flags = course & 0x03FF
+        flags = int(course) & 0x03FF
         if lat > 0:
             flags |= 0x0400
         if lon < 0:
@@ -768,6 +796,252 @@ def _log(prefix: str, msg: str) -> None:
     print(f"[{prefix}] {msg}")
 
 
+# ---------------------------------------------------------------------------
+# State file: imei,lat,lon,timestamp_sec,protocol (no header)
+# ---------------------------------------------------------------------------
+def load_state(path: str, protocol_list: list[str]) -> tuple[list[dict], bool]:
+    """
+    Load state from CSV (no header). Legacy: lines with no comma are IMEI-only; we migrate in memory.
+    Returns (state, had_legacy) so caller can save to upgrade the file.
+    """
+    try:
+        with open(path, "r") as f:
+            lines = [line.strip() for line in f if line.strip()]
+    except FileNotFoundError:
+        return [], False
+    out = []
+    had_legacy = False
+    for line in lines:
+        parts = [p.strip() for p in line.split(",")]
+        if len(parts) >= 5:
+            try:
+                out.append({
+                    "imei": parts[0],
+                    "lat": float(parts[1]),
+                    "lon": float(parts[2]),
+                    "timestamp_sec": int(parts[3]),
+                    "protocol": parts[4].lower(),
+                })
+            except (ValueError, IndexError):
+                continue
+        elif len(parts) == 1 and parts[0].isdigit():
+            had_legacy = True
+            lat, lon, _ = random_land_position()
+            proto = protocol_list[len(out) % len(protocol_list)]
+            out.append({
+                "imei": parts[0],
+                "lat": lat,
+                "lon": lon,
+                "timestamp_sec": 0,
+                "protocol": proto,
+            })
+    return out, had_legacy
+
+
+def save_state(path: str, state: list[dict]) -> None:
+    """
+    Write full state to CSV (no header). Writes to temp then atomically renames.
+    Only replaces the real file if the temp has exactly len(state) lines, so we never overwrite with a truncated state.
+    """
+    expected = len(state)
+    lines = [f"{d['imei']},{d['lat']:.6f},{d['lon']:.6f},{d['timestamp_sec']},{d['protocol']}" for d in state]
+    if len(lines) != expected:
+        return  # state changed during build; skip this save
+    tmp = path + ".tmp"
+    try:
+        replace_ok = True
+        with open(tmp, "w") as f:
+            content = "\n".join(lines) + "\n"
+            f.write(content)
+            f.flush()
+            if content.count("\n") != expected:
+                replace_ok = False
+        if not replace_ok:
+            try:
+                os.unlink(tmp)
+            except Exception:
+                pass
+            return
+        os.replace(tmp, path)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except Exception:
+            pass
+        raise
+
+
+def generate_initial_state(num_devices: int, protocol_list: list[str]) -> list[dict]:
+    """Generate state entries with random initial positions and round-robin protocol."""
+    state = []
+    for i in range(num_devices):
+        lat, lon, _ = random_land_position()
+        protocol = protocol_list[i % len(protocol_list)]
+        imei = f"{358484000000000 + (i * 100000) + random.randint(0, 99999):015d}"
+        state.append({
+            "imei": imei,
+            "lat": lat,
+            "lon": lon,
+            "timestamp_sec": 0,
+            "protocol": protocol,
+        })
+    return state
+
+
+def state_from_device_list(path: str, protocol_list: list[str]) -> list[dict]:
+    """Build state from existing device IDs: one IMEI per line, or CSV (first column = IMEI)."""
+    try:
+        with open(path, "r") as f:
+            raw_lines = [line.strip() for line in f if line.strip()]
+    except FileNotFoundError:
+        return []
+    imeis = []
+    for line in raw_lines:
+        # CSV state format: imei,lat,lon,ts,protocol -> take first column
+        if "," in line:
+            imeis.append(line.split(",")[0].strip())
+        else:
+            imeis.append(line)
+    state = []
+    for i, imei in enumerate(imeis):
+        lat, lon, _ = random_land_position()
+        protocol = protocol_list[i % len(protocol_list)]
+        state.append({
+            "imei": imei,
+            "lat": lat,
+            "lon": lon,
+            "timestamp_sec": 0,
+            "protocol": protocol,
+        })
+    return state
+
+
+async def send_one_report(device_state: dict, host: str, args, rate_limit_lock: asyncio.Lock | None, min_interval: float, last_send_time: list) -> bool:
+    """
+    Create a protocol device instance with injected lat/lon/speed/course, connect (or reuse), send one report.
+    First send per device: close connection after. Resends: keep connection open (unless --close).
+    """
+    proto_key = device_state["protocol"]
+    if proto_key not in PROTOCOLS:
+        return False
+    proto = PROTOCOLS[proto_key]
+    port = proto["port"]
+    device_class = proto["device_class"]
+    device_id = device_state["imei"]
+    lat = device_state["lat"]
+    lon = device_state["lon"]
+    next_lat, next_lon, course_deg = next_position_near(lat, lon, MAX_MOVE_METERS)
+    speed = random.uniform(20, 80)
+    device = device_class(device_id)
+    device.lat = next_lat
+    device.lon = next_lon
+    device.speed = speed
+    device.course = course_deg
+    device._box = (next_lat - 0.005, next_lat + 0.005, next_lon - 0.005, next_lon + 0.005)
+    device._log_prefix = proto_key
+    if proto_key == "osmand":
+        device._host = host
+        device._port = port
+    if rate_limit_lock is not None and min_interval > 0:
+        async with rate_limit_lock:
+            now = time.time()
+            wait = last_send_time[0] + min_interval - now
+            if wait > 0:
+                await asyncio.sleep(wait)
+            last_send_time[0] = time.time()
+
+    # Reuse existing connection for resends (only when not --close)
+    reuse = not args.close and device_state.get("_writer") is not None
+    if reuse:
+        device.writer = device_state["_writer"]
+        device.reader = device_state.get("_reader")
+        device.logged_in = True  # GT06, Teltonika: skip duplicate login
+        if device_state.get("_serial") is not None:
+            device.serial = device_state["_serial"]  # GT06, Suntech, etc.: correct packet serial
+    else:
+        if not await device.connect(host, port):
+            return False
+
+    # First send: close after. Resends: keep open (unless --close).
+    is_first = device_state["timestamp_sec"] == 0
+    close_after = args.close or is_first
+    try:
+        ok = await device.send_report(close_after=close_after)
+    except Exception:
+        device_state.pop("_writer", None)
+        device_state.pop("_reader", None)
+        device_state.pop("_serial", None)
+        raise
+    if not ok:
+        device_state.pop("_writer", None)
+        device_state.pop("_reader", None)
+        device_state.pop("_serial", None)
+        return False
+    device_state["lat"] = next_lat
+    device_state["lon"] = next_lon
+    device_state["timestamp_sec"] = int(time.time())
+    if not close_after:
+        device_state["_writer"] = device.writer
+        device_state["_reader"] = getattr(device, "reader", None)
+        device_state["_serial"] = getattr(device, "serial", None)
+    return True
+
+
+async def run_continuous_loop(state: list[dict], online_indices: list[int], state_file: str, args):
+    """Run forever: coordinator enqueues due devices, workers send with rate limit."""
+    report_interval = args.report_interval
+    due_list = []
+    due_lock = asyncio.Lock()
+    rate_limit_lock = asyncio.Lock() if args.max_rps else None
+    min_interval = 1.0 / args.max_rps if args.max_rps else 0.0
+    last_send_time = [0.0]
+    persist_interval = 60
+    last_persist = [time.time()]
+    stats = {"success": 0, "failed": 0}
+
+    async def coordinator():
+        while True:
+            await asyncio.sleep(1)
+            now = time.time()
+            async with due_lock:
+                due_set = set(due_list)
+                for i in online_indices:
+                    d = state[i]
+                    if now - d["timestamp_sec"] >= report_interval and i not in due_set:
+                        due_list.append(i)
+                        due_set.add(i)
+            if now - last_persist[0] >= persist_interval:
+                last_persist[0] = now
+                try:
+                    save_state(state_file, state)
+                except Exception as e:
+                    print(f"Persist failed: {e}")
+
+    async def worker():
+        while True:
+            idx = None
+            async with due_lock:
+                if due_list:
+                    idx = due_list.pop(0)
+            if idx is None:
+                await asyncio.sleep(0.1)
+                continue
+            device_state = state[idx]
+            ok = await send_one_report(device_state, args.host, args, rate_limit_lock, min_interval, last_send_time)
+            if ok:
+                stats["success"] += 1
+                if stats["success"] % 1000 == 0:
+                    print(f"Sent {stats['success']} reports (failed={stats['failed']})...")
+            else:
+                stats["failed"] += 1
+            await asyncio.sleep(0.05)
+
+    num_workers = args.concurrency
+    workers = [asyncio.create_task(worker()) for _ in range(num_workers)]
+    coord = asyncio.create_task(coordinator())
+    await asyncio.gather(coord, *workers)
+
+
 async def run_one_protocol(proto_key: str, host: str, device_ids: list[str], args) -> dict:
     """Run load test for one protocol; returns stats dict. All protocols run in parallel."""
     proto = PROTOCOLS[proto_key]
@@ -880,21 +1154,26 @@ async def run_one_protocol(proto_key: str, host: str, device_ids: list[str], arg
 
 async def main():
     parser = argparse.ArgumentParser(
-        description="Multi-protocol load test: send to GT06, Suntech, Osmand simultaneously (single command).")
+        description="Multi-protocol load test: continuous loop, each device reports every report_interval sec.")
     parser.add_argument("--protocols", "-p", type=str,
                         default="gt06,suntech,osmand,teltonika,tk103,meiligao,ruptela,gl200",
-                        help="Comma-separated protocols (default: all). e.g. gt06,suntech,osmand,teltonika,tk103,meiligao,ruptela,gl200")
+                        help="Comma-separated protocols (default: all)")
     parser.add_argument("--host", default="localhost", help="Server host")
     parser.add_argument("--devices", type=int, default=100,
-                        help="Number of devices per protocol (one report per device)")
-    parser.add_argument("--reports", type=int, default=None, help="Ignored; kept for compatibility")
-    parser.add_argument("--interval", type=float, default=2.0, help="Interval cycle per worker (sec)")
-    parser.add_argument("--concurrency", type=int, default=20,
-                        help="Concurrent workers per protocol (each protocol runs this many)")
+                        help="Number of devices to generate when state file is empty")
+    parser.add_argument("--report-interval", type=float, default=60,
+                        help="Seconds between reports per device (default 60)")
+    parser.add_argument("--online-pct", type=float, default=100,
+                        help="Percentage of devices that send reports (0-100, default 100)")
+    parser.add_argument("--concurrency", type=int, default=20, help="Concurrent workers")
     parser.add_argument("--close", action="store_true", help="Close connection after each report")
-    parser.add_argument("--max-rps", type=float, default=None, help="Cap reports per second (per protocol)")
+    parser.add_argument("--max-rps", type=float, default=None, help="Cap reports per second (global)")
     parser.add_argument("--imei-file", default="load-test-imeis.txt",
-                        help="File to save/load device IDs (one per line)")
+                        help="State file: imei,lat,lon,timestamp_sec,protocol (no header)")
+    parser.add_argument("--device-list", default=None,
+                        help="File with existing device IDs (one IMEI per line). Use these devices instead of generating. Combined with empty state file or --regenerate.")
+    parser.add_argument("--regenerate", action="store_true",
+                        help="Overwrite state file (with --devices new devices, or with --device-list if given)")
     args = parser.parse_args()
 
     protocol_list = [s.strip().lower() for s in args.protocols.split(",") if s.strip()]
@@ -903,60 +1182,45 @@ async def main():
         parser.error(f"Unknown protocol(s): {unknown}. Choose from: {list(PROTOCOLS)}")
     if not protocol_list:
         parser.error("At least one protocol required.")
+    if not (0 < args.online_pct <= 100):
+        parser.error("--online-pct must be in (0, 100]")
 
-    if args.concurrency > 100:
-        print("Warning: --concurrency > 100 per protocol can overwhelm the server.")
-    if args.close and args.concurrency > 50:
-        print("Warning: --close with high concurrency opens many short-lived connections.")
+    state_file = args.imei_file
+    state, had_legacy = load_state(state_file, protocol_list)
 
-    imei_file = args.imei_file
-    try:
-        with open(imei_file, "r") as f:
-            device_ids = [line.strip() for line in f if line.strip()]
-    except FileNotFoundError:
-        device_ids = []
-    if device_ids:
-        print(f"Loaded {len(device_ids)} device IDs from {imei_file} (restart mode)")
+    # Rule: use existing file if it has content. Overwrite only if file missing/empty or user passed --regenerate.
+    if state and not args.regenerate:
+        # File exists and has devices: use it. Never overwrite.
+        print(f"Resuming: {len(state)} devices from {state_file}")
+        if had_legacy:
+            save_state(state_file, state)
+            print("Upgraded file to new format (imei,lat,lon,timestamp_sec,protocol)")
     else:
-        print(f"Generating {args.devices} device IDs and saving to {imei_file}...")
-        device_ids = [
-            f"{358484000000000 + (i * 100000) + random.randint(0, 99999):015d}"
-            for i in range(args.devices)
-        ]
-        with open(imei_file, "w") as f:
-            f.write("\n".join(device_ids) + "\n")
-    num_devices = len(device_ids)
-    # Each IMEI → one protocol (round-robin). All protocols run at same time until IMEI list is done.
-    device_ids_per_protocol = {p: [] for p in protocol_list}
-    for i, did in enumerate(device_ids):
-        device_ids_per_protocol[protocol_list[i % len(protocol_list)]].append(did)
-    print(f"IMEI list: {num_devices} devices (each → one protocol, round-robin):")
-    for p in protocol_list:
-        print(f"  {p}: {len(device_ids_per_protocol[p])} devices")
+        # File missing/empty or --regenerate: create state and write file (only time we create/overwrite)
+        if args.device_list:
+            state = state_from_device_list(args.device_list, protocol_list)
+            if not state:
+                parser.error(f"--device-list file empty or not found: {args.device_list}")
+            print(f"Using {len(state)} devices from {args.device_list}, saving to {state_file}...")
+        else:
+            state = generate_initial_state(args.devices, protocol_list)
+            print(f"Generating {len(state)} devices, saving to {state_file}...")
+        save_state(state_file, state)
 
-    print(f"Protocols: {', '.join(protocol_list)} (simultaneous)")
-    print(f"Host:      {args.host}")
-    print(f"Workers:   {args.concurrency} per protocol ({len(protocol_list) * args.concurrency} total)")
-    print(f"Mode:      {'Connection-per-report' if args.close else 'Persistent'}")
+    state = [d for d in state if d["protocol"] in protocol_list]
+    if not state:
+        parser.error("No devices left after filtering by --protocols")
+    n_online = max(1, int(len(state) * args.online_pct / 100))
+    online_indices = random.sample(range(len(state)), n_online)
+    print(f"Online: {n_online} devices ({args.online_pct}%)")
+    print(f"Report interval: {args.report_interval}s per device")
+    print(f"Movement: max {MAX_MOVE_METERS}m per report")
+    print(f"Host: {args.host}  Workers: {args.concurrency}  Close: {args.close}")
     if args.max_rps:
-        print(f"Rate cap:  {args.max_rps} rps per protocol")
-    print()
+        print(f"Rate cap: {args.max_rps} rps")
+    print("Running continuous loop (Ctrl+C to stop)...\n")
 
-    start_time = time.time()
-    results = await asyncio.gather(*[
-        run_one_protocol(proto_key, args.host, device_ids_per_protocol[proto_key], args)
-        for proto_key in protocol_list
-    ])
-    total_wall = time.time() - start_time
-
-    print("\n--- Results ---")
-    total_ok = 0
-    total_fail = 0
-    for r in results:
-        print(f"  {r['name']} ({args.host}:{r['port']}): success={r['success']} failed={r['failed']} duration={r['duration']:.2f}s rps={r['rps']:.2f}")
-        total_ok += r["success"]
-        total_fail += r["failed"]
-    print(f"  Total: success={total_ok} failed={total_fail} wall_clock={total_wall:.2f}s")
+    await run_continuous_loop(state, online_indices, state_file, args)
 
 
 if __name__ == "__main__":
