@@ -1031,7 +1031,16 @@ async def run_continuous_loop(state: list[dict], online_indices: list[int], stat
                 break
             now = time.time()
             due_set = set(due_list)
-            due_indices = [i for i in online_indices if now - state[i]["timestamp_sec"] >= report_interval and i not in due_set]
+            # Phase 1: first report for every online device (timestamp_sec == 0)
+            bootstrap_pending = any(state[i]["timestamp_sec"] == 0 for i in online_indices)
+            if bootstrap_pending:
+                # First, send once for all devices that never reported yet
+                due_indices = [i for i in online_indices
+                               if state[i]["timestamp_sec"] == 0 and i not in due_set]
+            else:
+                # Normal phase: respect report_interval between reports
+                due_indices = [i for i in online_indices
+                               if now - state[i]["timestamp_sec"] >= report_interval and i not in due_set]
             if not due_indices:
                 continue
             # Generate all coordinates for this round, then save file once, then enqueue
@@ -1068,7 +1077,6 @@ async def run_continuous_loop(state: list[dict], online_indices: list[int], stat
                     print(f"Sent {stats['success']} reports (failed={stats['failed']})...")
             else:
                 stats["failed"] += 1
-            await asyncio.sleep(0.05)
 
     num_workers = args.concurrency
     workers = [asyncio.create_task(worker()) for _ in range(num_workers)]
