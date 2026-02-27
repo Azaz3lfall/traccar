@@ -1031,14 +1031,14 @@ async def run_continuous_loop(state: list[dict], online_indices: list[int], stat
                 break
             now = time.time()
             due_set = set(due_list)
-            # Phase 1: first report for every online device (timestamp_sec == 0)
-            bootstrap_pending = any(state[i]["timestamp_sec"] == 0 for i in online_indices)
+            # Phase 1: first report for EVERY device in state (bootstrap), regardless of online_pct.
+            # Phase 2: periodic updates only for online_indices respecting report_interval.
+            bootstrap_pending = any(d["timestamp_sec"] == 0 for d in state)
             if bootstrap_pending:
-                # First, send once for all devices that never reported yet
-                due_indices = [i for i in online_indices
-                               if state[i]["timestamp_sec"] == 0 and i not in due_set]
+                # First, send once for all devices that never reported yet (full state, not just online_indices)
+                due_indices = [i for i, d in enumerate(state) if d["timestamp_sec"] == 0 and i not in due_set]
             else:
-                # Normal phase: respect report_interval between reports
+                # Normal phase: respect report_interval between reports for online devices only
                 due_indices = [i for i in online_indices
                                if now - state[i]["timestamp_sec"] >= report_interval and i not in due_set]
             if not due_indices:
