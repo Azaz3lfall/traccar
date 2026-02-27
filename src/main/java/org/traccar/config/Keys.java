@@ -749,12 +749,12 @@ public final class Keys {
 
     /**
      * If no data is reported by a device for the given amount of time, status changes from online to unknown. Value is
-     * in seconds. Default timeout is 10 minutes.
+     * in seconds. Default timeout is 120 minutes.
      */
     public static final ConfigKey<Long> STATUS_TIMEOUT = new LongConfigKey(
             "status.timeout",
             List.of(KeyType.CONFIG),
-            600L);
+            7200L);
 
     /**
      * List of protocol names to ignore offline status. Can be useful to not trigger status change when devices are
@@ -763,6 +763,15 @@ public final class Keys {
     public static final ConfigKey<String> STATUS_IGNORE_OFFLINE = new StringConfigKey(
             "status.ignoreOffline",
             List.of(KeyType.CONFIG));
+
+    /**
+     * When false, device is not set to offline when connection closes; it stays online until status.timeout (no data).
+     * When true, TCP disconnect sets device to offline (previous behavior). Default false = online until timeout.
+     */
+    public static final ConfigKey<Boolean> STATUS_OFFLINE_ON_DISCONNECT = new BooleanConfigKey(
+            "status.offlineOnDisconnect",
+            List.of(KeyType.CONFIG),
+            false);
 
     /**
      * Path to the media folder. Server stores audio, video and photo files in that folder. Sub-folders will be
