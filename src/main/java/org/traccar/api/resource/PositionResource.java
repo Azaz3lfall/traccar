@@ -95,6 +95,11 @@ public class PositionResource extends BaseResource {
 
     private static final int CLUSTER_PIXEL_SIZE = 40;
 
+    /** Max cell size in degrees (~220 km at equator). Avoids one giant cluster at low zoom. */
+    private static final double MAX_CELL_DEGREES = 2.0;
+    /** Min cell size in degrees (~1 km). Avoids excessive cluster count at high zoom. */
+    private static final double MIN_CELL_DEGREES = 0.01;
+
     /** From zoom 16 onward do not cluster: return each position individually. */
     private static final int NO_CLUSTER_ZOOM_THRESHOLD = 16;
 
@@ -105,8 +110,10 @@ public class PositionResource extends BaseResource {
         return Math.max(0, Math.min(22, z));
     }
 
+    /** Grid cell size in degrees for clustering. Capped so low zoom gets more clusters, high zoom doesn't explode. */
     private static double cellDegForZoom(int zoom) {
-        return (360.0 / (256 * (1 << Math.max(0, Math.min(zoom, 22))))) * CLUSTER_PIXEL_SIZE;
+        double raw = (360.0 / (256 * (1 << Math.max(0, Math.min(zoom, 22))))) * CLUSTER_PIXEL_SIZE;
+        return Math.max(MIN_CELL_DEGREES, Math.min(MAX_CELL_DEGREES, raw));
     }
 
     /** Approximate earth circumference in meters (for distance-based clustering). */
@@ -116,6 +123,33 @@ public class PositionResource extends BaseResource {
     private static double epsMetersForZoom(int zoom) {
         int z = Math.max(0, Math.min(22, zoom));
         return CLUSTER_PIXEL_SIZE * EARTH_CIRCUMFERENCE_M / (256.0 * (1 << z));
+    }
+
+    /** Min/max cluster radius (meters). Bounds-derived max keeps distribution across viewport. */
+    private static final double MIN_EPS_METERS = 400.0;
+    private static final double MAX_EPS_METERS = 8000.0;
+
+    /**
+     * Max cluster radius from viewport size so we get multiple clusters across the map, not one giant cluster.
+     * Uses shorter span of bounds (in meters); target ~15–20 clusters along that axis.
+     */
+    private static double maxEpsFromBounds(double minLat, double maxLat, double minLon, double maxLon) {
+        double latSpanDeg = Math.max(0.001, maxLat - minLat);
+        double lonSpanDeg = Math.max(0.001, maxLon - minLon);
+        double midLat = (minLat + maxLat) * 0.5;
+        double latMeters = 111_320.0 * latSpanDeg;
+        double lonMeters = 111_320.0 * Math.cos(Math.toRadians(midLat)) * lonSpanDeg;
+        double spanMeters = Math.min(latMeters, lonMeters);
+        double maxEps = spanMeters / 18.0;
+        return Math.max(MIN_EPS_METERS, Math.min(MAX_EPS_METERS, maxEps));
+    }
+
+    /** Effective eps: zoom-based value capped by bounds-derived max (and global min/max). */
+    private static double epsMetersForMap(int zoom, double minLat, double maxLat, double minLon, double maxLon) {
+        double fromZoom = epsMetersForZoom(zoom);
+        double maxFromBounds = maxEpsFromBounds(minLat, maxLat, minLon, maxLon);
+        double eps = Math.min(fromZoom, maxFromBounds);
+        return Math.max(MIN_EPS_METERS, Math.min(MAX_EPS_METERS, eps));
     }
 
     /** Expand bounds by factor on each side (e.g. 0.5 = 50% each side). Lat clamped to [-90,90], lon to [-180,180]. */
@@ -156,7 +190,7 @@ public class PositionResource extends BaseResource {
                 : zoomFromBounds;
             List<MapCellRow> cells;
             if (storage.hasPostGIS()) {
-                double epsMeters = epsMetersForZoom(effectiveZoom);
+                double epsMeters = epsMetersForMap(effectiveZoom, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon());
                 cells = storage.getMapCellsInBoundsDistance(userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(), epsMeters);
             } else {
                 double cellDeg = cellDegForZoom(effectiveZoom);
@@ -320,7 +354,7 @@ public class PositionResource extends BaseResource {
         int zoomForClustering = zoom >= NO_CLUSTER_ZOOM_THRESHOLD ? 22 : zoom;
         List<MapCellRow> cells;
         if (storage.hasPostGIS()) {
-            double epsMeters = epsMetersForZoom(zoomForClustering);
+            double epsMeters = epsMetersForMap(zoomForClustering, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon());
             cells = storage.getMapCellsInBoundsDistance(userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(), epsMeters);
         } else {
             double cellDeg = cellDegForZoom(zoomForClustering);
