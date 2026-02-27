@@ -3,7 +3,8 @@
 # Configuration
 # format: "username:password:host"
 HOSTS=(
-    "root:FurudUtsukNoncomUnrank:codeartisan.cloud"
+    # "root:FurudUtsukNoncomUnrank:codeartisan.cloud",
+    "root:pH_2456hCD3mPJ:v9.codeartisan.cloud"
     # Add more hosts here
 )
 
