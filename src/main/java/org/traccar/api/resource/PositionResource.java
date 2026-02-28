@@ -125,9 +125,23 @@ public class PositionResource extends BaseResource {
         return CLUSTER_PIXEL_SIZE * EARTH_CIRCUMFERENCE_M / (256.0 * (1 << z));
     }
 
-    /** Min/max cluster radius (meters). Bounds-derived max keeps distribution across viewport. */
-    private static final double MIN_EPS_METERS = 400.0;
-    private static final double MAX_EPS_METERS = 8000.0;
+    /** Min/max cluster radius (meters). Only cluster close items; tight range avoids re-clustering. */
+    private static final double MIN_EPS_METERS = 200.0;
+    private static final double MAX_EPS_METERS = 1000.0;
+
+    /**
+     * Max cluster radius from zoom level. When zoomed out (low zoom), use smaller max so we get
+     * multiple clusters across the map instead of one giant cluster. When zoomed in, allow larger eps.
+     */
+    private static double maxEpsForZoom(int zoom) {
+        if (zoom <= 7) {
+            return 2000.0;  // ~2 km when zoomed out: more clusters
+        }
+        if (zoom <= 10) {
+            return 3000.0;  // ~3 km
+        }
+        return MAX_EPS_METERS;  // 1 km at high zoom
+    }
 
     /**
      * Max cluster radius from viewport size so we get multiple clusters across the map, not one giant cluster.
@@ -140,15 +154,16 @@ public class PositionResource extends BaseResource {
         double latMeters = 111_320.0 * latSpanDeg;
         double lonMeters = 111_320.0 * Math.cos(Math.toRadians(midLat)) * lonSpanDeg;
         double spanMeters = Math.min(latMeters, lonMeters);
-        double maxEps = spanMeters / 18.0;
+        double maxEps = spanMeters / 25.0;  // More clusters: was 18
         return Math.max(MIN_EPS_METERS, Math.min(MAX_EPS_METERS, maxEps));
     }
 
-    /** Effective eps: zoom-based value capped by bounds-derived max (and global min/max). */
+    /** Effective eps: zoom-based value capped by bounds-derived max and zoom-based max (and global min/max). */
     private static double epsMetersForMap(int zoom, double minLat, double maxLat, double minLon, double maxLon) {
         double fromZoom = epsMetersForZoom(zoom);
         double maxFromBounds = maxEpsFromBounds(minLat, maxLat, minLon, maxLon);
-        double eps = Math.min(fromZoom, maxFromBounds);
+        double zoomBasedMax = maxEpsForZoom(zoom);
+        double eps = Math.min(Math.min(fromZoom, maxFromBounds), zoomBasedMax);
         return Math.max(MIN_EPS_METERS, Math.min(MAX_EPS_METERS, eps));
     }
 

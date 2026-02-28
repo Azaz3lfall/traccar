@@ -391,7 +391,7 @@ public class DatabaseStorage extends Storage {
                     + "),"
                     + " with_cluster AS ("
                     + "  SELECT *, COALESCE("
-                    + "    ST_ClusterDBSCAN(geom, ?::double precision, 3) OVER (ORDER BY id),"
+                    + "    ST_ClusterDBSCAN(geom, ?::double precision, 5) OVER (ORDER BY id),"
                     + "    -ROW_NUMBER() OVER (ORDER BY id)"
                     + "  ) AS cluster_id FROM with_geom"
                     + ")"
