@@ -203,6 +203,15 @@ public class PositionResource extends BaseResource {
             int effectiveZoom = (zoom != null && zoom >= 0)
                 ? Math.max(0, Math.min(22, zoom))
                 : zoomFromBounds;
+            // From zoom 16 onward do not cluster: return raw positions in bounds and empty clusters.
+            if (effectiveZoom >= NO_CLUSTER_ZOOM_THRESHOLD) {
+                List<PositionMapItem> positionsInBounds = storage.getPositionsInBoundsForMapView(
+                        userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon());
+                PositionsMapResponse mapResponse = new PositionsMapResponse(positionsInBounds, List.of());
+                LOGGER.info("API /positions map-view: userId={} bounds=[{},{},{},{}] zoom={} (no cluster) -> {} positions",
+                        userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(), effectiveZoom, positionsInBounds.size());
+                return Response.ok(mapResponse).build();
+            }
             List<MapCellRow> cells;
             if (storage.hasPostGIS()) {
                 double epsMeters = epsMetersForMap(effectiveZoom, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon());
@@ -211,8 +220,8 @@ public class PositionResource extends BaseResource {
                 double cellDeg = cellDegForZoom(effectiveZoom);
                 cells = storage.getMapCellsInBounds(userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(), cellDeg);
             }
-            LOGGER.info("API /positions map-view: userId={} bounds=[{},{},{},{}] expanded -> {} cells from DB",
-                    userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(), cells.size());
+            LOGGER.info("API /positions map-view: userId={} bounds=[{},{},{},{}] zoom={} -> {} cells from DB",
+                    userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(), effectiveZoom, cells.size());
             PositionsMapResponse mapResponse = mapCellsToResponse(cells);
             return Response.ok(mapResponse).build();
         }
