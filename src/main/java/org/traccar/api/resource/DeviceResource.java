@@ -229,7 +229,6 @@ public class DeviceResource extends BaseObjectResource<Device> {
                     DeviceStatusCounts statusCounts = storage.getDeviceStatusCounts(
                             effectiveUserId, skipPermissionFilter, groupId, search,
                             lastUpdateFrom, lastUpdateTo);
-                    // Always set status metadata so client gets same shape even when content is empty or statusCounts unavailable
                     page.setTotalOnline(statusCounts != null ? statusCounts.online() : 0L);
                     page.setTotalOffline(statusCounts != null ? statusCounts.offline() : 0L);
                     page.setTotalUnknown(statusCounts != null ? statusCounts.unknown() : 0L);
