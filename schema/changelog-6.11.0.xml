@@ -13,6 +13,10 @@
       <sqlCheck expectedResult="1">
         SELECT COUNT(*) FROM pg_available_extensions WHERE name = 'timescaledb';
       </sqlCheck>
+      <!-- Skip if tc_actions is already a hypertable (e.g. re-run after partial run) -->
+      <sqlCheck expectedResult="0">
+        SELECT COUNT(*) FROM timescaledb_information.hypertables WHERE hypertable_name = 'tc_actions';
+      </sqlCheck>
     </preConditions>
 
     <sql splitStatements="true" endDelimiter=";">

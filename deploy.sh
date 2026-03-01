@@ -1,4 +1,9 @@
 #!/bin/bash
+set -e
+
+# Run from project root so target/ and schema/ resolve
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
 
 # Configuration
 # format: "username:password:host"
@@ -88,6 +93,10 @@ for HOST_INFO in "${HOSTS[@]}"; do
                 sudo rm -rf /opt/traccar/lib /opt/traccar/tracker-server.jar
                 sudo mv /opt/traccar/tracker-server.jar.bak /opt/traccar/tracker-server.jar
                 sudo mv /opt/traccar/lib.bak /opt/traccar/lib
+                if [ -d /opt/traccar/schema.bak ]; then
+                    sudo rm -rf /opt/traccar/schema
+                    sudo mv /opt/traccar/schema.bak /opt/traccar/schema
+                fi
                 sudo systemctl restart traccar
                 echo "Rollback successful"
             else
@@ -99,18 +108,22 @@ EOF
         # Normal Deployment
         show_progress "Preparing remote and backing up current version..."
         sshpass -p "$REMOTE_PASS" ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" << EOF
-            sudo rm -rf /opt/traccar/lib.bak /opt/traccar/tracker-server.jar.bak
+            sudo rm -rf /opt/traccar/lib.bak /opt/traccar/tracker-server.jar.bak /opt/traccar/schema.bak
             [ -f /opt/traccar/tracker-server.jar ] && sudo cp /opt/traccar/tracker-server.jar /opt/traccar/tracker-server.jar.bak
             [ -d /opt/traccar/lib ] && sudo cp -r /opt/traccar/lib /opt/traccar/lib.bak
+            [ -d /opt/traccar/schema ] && sudo cp -r /opt/traccar/schema /opt/traccar/schema.bak
             sudo rm -rf /opt/traccar/lib /opt/traccar/tracker-server.jar
 EOF
 
-        # Upload
+        # Upload (rsync = only changed files/deltas after first deploy; -z = compress)
         show_progress "Uploading binaries..."
-        echo "   -> tracker-server.jar"
-        sshpass -p "$REMOTE_PASS" scp -o StrictHostKeyChecking=no target/tracker-server.jar "$REMOTE_USER@$REMOTE_HOST:/tmp/"
-        echo "   -> lib/ directory"
-        sshpass -p "$REMOTE_PASS" scp -o StrictHostKeyChecking=no -r target/lib "$REMOTE_USER@$REMOTE_HOST:/tmp/"
+        SSH_OPTS="-o StrictHostKeyChecking=no"
+        echo "   -> tracker-server.jar (rsync)"
+        sshpass -p "$REMOTE_PASS" rsync -az -e "ssh $SSH_OPTS" target/tracker-server.jar "$REMOTE_USER@$REMOTE_HOST:/tmp/"
+        echo "   -> lib/ (rsync, delta only)"
+        sshpass -p "$REMOTE_PASS" rsync -az --delete -e "ssh $SSH_OPTS" target/lib/ "$REMOTE_USER@$REMOTE_HOST:/tmp/lib/"
+        echo "   -> schema/ (rsync, delta only)"
+        sshpass -p "$REMOTE_PASS" rsync -az --delete -e "ssh $SSH_OPTS" schema/ "$REMOTE_USER@$REMOTE_HOST:/tmp/schema/"
         echo "   -> tools/load-test.py, tools/conn-monitor.sh"
         sshpass -p "$REMOTE_PASS" scp -o StrictHostKeyChecking=no tools/load-test.py tools/conn-monitor.sh "$REMOTE_USER@$REMOTE_HOST:/tmp/"
 
@@ -120,16 +133,27 @@ EOF
         sshpass -p "$REMOTE_PASS" scp -o StrictHostKeyChecking=no traccar.service.tmp "$REMOTE_USER@$REMOTE_HOST:/tmp/traccar.service"
         rm traccar.service.tmp
 
-        sshpass -p "$REMOTE_PASS" ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" << EOF
+        sshpass -p "$REMOTE_PASS" ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" << 'REMOTE_EOF'
             sudo mv /tmp/tracker-server.jar /opt/traccar/
             sudo mv /tmp/lib /opt/traccar/
+            sudo rm -rf /opt/traccar/schema
+            sudo mv /tmp/schema /opt/traccar/
+            if [ ! -f /opt/traccar/schema/changelog-master.xml ]; then
+                echo "ERROR: schema/changelog-master.xml missing after deploy; restoring schema.bak if present"
+                if [ -d /opt/traccar/schema.bak ]; then
+                    sudo rm -rf /opt/traccar/schema
+                    sudo mv /opt/traccar/schema.bak /opt/traccar/schema
+                fi
+                exit 1
+            fi
+            sudo chmod -R a+rX /opt/traccar/schema
             sudo mv /tmp/load-test.py /tmp/conn-monitor.sh /opt/traccar/
             sudo chmod +x /opt/traccar/conn-monitor.sh
             sudo mv /tmp/traccar.service /etc/systemd/system/traccar.service
-            sudo chown -R root:root /opt/traccar/lib /opt/traccar/tracker-server.jar /opt/traccar/load-test.py /opt/traccar/conn-monitor.sh
+            sudo chown -R root:root /opt/traccar/lib /opt/traccar/tracker-server.jar /opt/traccar/schema /opt/traccar/load-test.py /opt/traccar/conn-monitor.sh
             sudo systemctl daemon-reload
             sudo systemctl restart traccar
-EOF
+REMOTE_EOF
     fi
     echo "Host $REMOTE_HOST finished."
 done
