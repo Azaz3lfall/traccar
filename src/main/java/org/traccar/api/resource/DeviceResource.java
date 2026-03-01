@@ -27,6 +27,7 @@ import org.traccar.database.MediaManager;
 import org.traccar.helper.LogAction;
 import org.traccar.model.Device;
 import org.traccar.model.DeviceAccumulators;
+import org.traccar.model.DeviceStatusCounts;
 import org.traccar.model.Page;
 import org.traccar.model.Permission;
 import org.traccar.model.Position;
@@ -59,6 +60,7 @@ import java.security.GeneralSecurityException;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -223,7 +225,16 @@ public class DeviceResource extends BaseObjectResource<Device> {
                 }
                 
                 if (offset > 0 || limit > 0) {
-                    return Response.ok(new Page<>(content, totalElements, offset, limit)).build();
+                    Page<Device> page = new Page<>(content, totalElements, offset, limit);
+                    DeviceStatusCounts statusCounts = storage.getDeviceStatusCounts(
+                            effectiveUserId, skipPermissionFilter, groupId, search,
+                            lastUpdateFrom, lastUpdateTo);
+                    if (statusCounts != null) {
+                        page.setTotalOnline(statusCounts.online());
+                        page.setTotalOffline(statusCounts.offline());
+                        page.setTotalUnknown(statusCounts.unknown());
+                    }
+                    return Response.ok(page).build();
                 } else {
                     return Response.ok(content).build();
                 }
@@ -246,10 +257,14 @@ public class DeviceResource extends BaseObjectResource<Device> {
                 }
 
                 if (offset > 0 || limit > 0) {
+                    Map<String, Long> statusCountsMap;
                     long totalElements;
                     try (Stream<Device> stream = getFilteredStream(columns, conditions, search)) {
-                        totalElements = stream.count();
+                        statusCountsMap = stream.collect(Collectors.groupingBy(
+                                d -> d.getStatus() != null ? d.getStatus().toLowerCase() : Device.STATUS_OFFLINE,
+                                Collectors.counting()));
                     }
+                    totalElements = statusCountsMap.values().stream().mapToLong(Long::longValue).sum();
                     List<Device> content;
                     try (Stream<Device> stream = getFilteredStream(columns, conditions, search)) {
                         content = stream
@@ -257,7 +272,13 @@ public class DeviceResource extends BaseObjectResource<Device> {
                                 .limit(limit > 0 ? limit : Long.MAX_VALUE)
                                 .collect(Collectors.toList());
                     }
-                    return Response.ok(new Page<>(content, totalElements, offset, limit)).build();
+                    Page<Device> page = new Page<>(content, totalElements, offset, limit);
+                    long online = statusCountsMap.getOrDefault(Device.STATUS_ONLINE, 0L);
+                    long offline = statusCountsMap.getOrDefault(Device.STATUS_OFFLINE, 0L);
+                    page.setTotalOnline(online);
+                    page.setTotalOffline(offline);
+                    page.setTotalUnknown(totalElements - online - offline);
+                    return Response.ok(page).build();
                 } else {
                     return Response.ok(getFilteredStream(columns, conditions, search)).build();
                 }

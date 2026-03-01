@@ -17,6 +17,7 @@ package org.traccar.storage;
 
 import org.traccar.model.BaseModel;
 import org.traccar.model.Device;
+import org.traccar.model.DeviceStatusCounts;
 import org.traccar.model.MapBoundsRow;
 import org.traccar.model.MapCellRow;
 import org.traccar.model.Permission;
@@ -125,6 +126,16 @@ public abstract class Storage {
             Date lastUpdateFrom, Date lastUpdateTo, String sortBy, boolean sortDescending,
             int offset, int limit) throws StorageException {
         return Stream.empty();
+    }
+
+    /**
+     * Returns counts of devices by status (online, offline, unknown) with the same filters as getDevicesWithFilters
+     * but without a status filter. For metadata on the devices list. Returns null when not supported (e.g. non-PostgreSQL).
+     */
+    public DeviceStatusCounts getDeviceStatusCounts(
+            long userId, boolean skipPermissionFilter, Long groupId, String search,
+            Date lastUpdateFrom, Date lastUpdateTo) throws StorageException {
+        return null;
     }
 
     /**

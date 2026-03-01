@@ -8,6 +8,12 @@ public class Page<T> {
     private long totalElements;
     private int offset;
     private int limit;
+    /** Total devices with status online (devices list only). */
+    private Long totalOnline;
+    /** Total devices with status offline (devices list only). */
+    private Long totalOffline;
+    /** Total devices with status unknown (devices list only). */
+    private Long totalUnknown;
 
     public Page(Collection<T> content, long totalElements, int offset, int limit) {
         this.content = content;
@@ -46,6 +52,30 @@ public class Page<T> {
 
     public void setLimit(int limit) {
         this.limit = limit;
+    }
+
+    public Long getTotalOnline() {
+        return totalOnline;
+    }
+
+    public void setTotalOnline(Long totalOnline) {
+        this.totalOnline = totalOnline;
+    }
+
+    public Long getTotalOffline() {
+        return totalOffline;
+    }
+
+    public void setTotalOffline(Long totalOffline) {
+        this.totalOffline = totalOffline;
+    }
+
+    public Long getTotalUnknown() {
+        return totalUnknown;
+    }
+
+    public void setTotalUnknown(Long totalUnknown) {
+        this.totalUnknown = totalUnknown;
     }
 
 }

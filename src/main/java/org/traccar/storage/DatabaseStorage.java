@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.traccar.config.Config;
 import org.traccar.model.BaseModel;
 import org.traccar.model.Device;
+import org.traccar.model.DeviceStatusCounts;
 import org.traccar.model.MapBoundsRow;
 import org.traccar.model.MapCellRow;
 import org.traccar.model.Position;
@@ -665,6 +666,82 @@ public class DatabaseStorage extends Storage {
             return builder.executeQueryStreamed(Device.class);
         } catch (SQLException e) {
             LOGGER.warn("getDevicesWithFilters: query failed", e);
+            throw new StorageException(e);
+        }
+    }
+
+    /** Row for status count query: status label and count. */
+    private static class StatusCountRow {
+        private String s;
+        private long cnt;
+        public String getS() { return s; }
+        public void setS(String s) { this.s = s; }
+        public long getCnt() { return cnt; }
+        public void setCnt(long cnt) { this.cnt = cnt; }
+    }
+
+    @Override
+    public DeviceStatusCounts getDeviceStatusCounts(
+            long userId, boolean skipPermissionFilter, Long groupId, String search,
+            Date lastUpdateFrom, Date lastUpdateTo) throws StorageException {
+        if (!databaseType.toLowerCase().contains("postgresql")) {
+            return null;
+        }
+        try {
+            String devTable = getStorageName(Device.class);
+            StringBuilder sql = new StringBuilder(
+                    "SELECT LOWER(COALESCE(d.status, 'offline')) AS s, COUNT(*) AS cnt FROM ")
+                    .append(devTable).append(" d");
+            List<Object> params = new ArrayList<>();
+            if (!skipPermissionFilter) {
+                String permittedDevices = buildPermittedDeviceIdsSubquery();
+                sql.append(" WHERE d.id IN (").append(permittedDevices).append(")");
+                params.add(userId);
+                params.add(userId);
+            } else {
+                sql.append(" WHERE 1=1");
+            }
+            if (groupId != null) {
+                sql.append(" AND d.groupid = ?");
+                params.add(groupId);
+            }
+            if (lastUpdateFrom != null) {
+                sql.append(" AND d.lastupdate >= ?");
+                params.add(new Timestamp(lastUpdateFrom.getTime()));
+            }
+            if (lastUpdateTo != null) {
+                sql.append(" AND d.lastupdate <= ?");
+                params.add(new Timestamp(lastUpdateTo.getTime()));
+            }
+            if (search != null && !search.isEmpty()) {
+                String searchPattern = "%" + search + "%";
+                sql.append(" AND (LOWER(d.name) LIKE LOWER(?) OR LOWER(d.uniqueid) LIKE LOWER(?))");
+                params.add(searchPattern);
+                params.add(searchPattern);
+            }
+            sql.append(" GROUP BY LOWER(COALESCE(d.status, 'offline'))");
+            var builder = QueryBuilder.create(config, dataSource, objectMapper, sql.toString());
+            for (int i = 0; i < params.size(); i++) {
+                builder.setValue(i, params.get(i));
+            }
+            long online = 0;
+            long offline = 0;
+            long unknown = 0;
+            try (Stream<StatusCountRow> stream = builder.executeQueryStreamed(StatusCountRow.class)) {
+                for (StatusCountRow row : (Iterable<StatusCountRow>) stream::iterator) {
+                    long c = row.cnt;
+                    if ("online".equals(row.s)) {
+                        online = c;
+                    } else if ("offline".equals(row.s)) {
+                        offline = c;
+                    } else {
+                        unknown += c;
+                    }
+                }
+            }
+            return new DeviceStatusCounts(online, offline, unknown);
+        } catch (SQLException e) {
+            LOGGER.warn("getDeviceStatusCounts: query failed", e);
             throw new StorageException(e);
         }
     }
