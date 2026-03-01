@@ -1,4 +1,5 @@
 #!/bin/bash
+# Copyright: Pedroso, Rafael Goulart | WhatsApp: +55 11 93425-1920 | don@codeartisan.cloud
 # Traccar realtime connection monitor. Run: ./conn-monitor.sh
 
 CONN_LOG="${CONN_MONITOR_LOG:-/tmp/traccar-conn.log}"
@@ -18,14 +19,13 @@ awk -v now="$now" -v w="$w" '$1 >= now - w { s += $2; n++ } END { if (n) printf 
 INNER
 chmod +x "$CONN_AVG_SCRIPT"
 
-watch -n1 "
+watch -n1 -t "
 # Snapshot current established count and append (timestamp epoch, count)
 EST=\$(ss -tan state established | wc -l)
 echo \"\$(date +%s) \$EST\" >> $CONN_LOG
 tail -n $KEEP_LINES $CONN_LOG > ${CONN_LOG}.tmp && mv ${CONN_LOG}.tmp $CONN_LOG
 
-echo '=== Traccar Realtime Monitor ==='
-date
+echo 'Copyright: Pedroso, Rafael Goulart | WhatsApp: +55 11 93425-1920 | don@codeartisan.cloud'
 echo
 
 echo 'Total TCP connections:'
@@ -34,18 +34,6 @@ ss -tan | wc -l
 echo
 echo 'Established connections (current):'
 echo \$EST
-
-echo
-echo '--- Established averages (accumulators) ---'
-echo -n 'Last 1 min avg:   '
-$CONN_AVG_SCRIPT $CONN_LOG 60
-echo
-echo -n 'Last 5 min avg:  '
-$CONN_AVG_SCRIPT $CONN_LOG 300
-echo
-echo -n 'Last 10 min avg: '
-$CONN_AVG_SCRIPT $CONN_LOG 600
-echo
 
 echo
 echo 'TIME_WAIT connections:'
@@ -58,4 +46,16 @@ ss -tan | grep :8082 | wc -l
 echo
 echo 'Java (Traccar) sockets:'
 ss -tanp | grep java | wc -l
+
+echo
+echo '--- Established averages (accumulators) ---'
+echo -n 'Last 1 min avg:   '
+$CONN_AVG_SCRIPT $CONN_LOG 60
+echo
+echo -n 'Last 5 min avg:  '
+$CONN_AVG_SCRIPT $CONN_LOG 300
+echo
+echo -n 'Last 10 min avg: '
+$CONN_AVG_SCRIPT $CONN_LOG 600
+echo
 "
