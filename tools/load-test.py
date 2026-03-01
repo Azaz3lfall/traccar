@@ -15,8 +15,8 @@ import argparse
 import sys
 import urllib.parse
 
-# Multi-city: São Paulo metro + Guarulhos, Barueri, Campinas, Valinhos, Embu das Artes, Jundiaí, Arujá, Poá, Mauá,
-# Suzano, Jundiapeba, Mogi das Cruzes, Francisco Morato, Bragança Paulista
+# Multi-city: São Paulo metro + Guarulhos, Barueri, Campinas, ... + São José do Rio Preto, Bauru, São Carlos,
+# Volta Redonda (RJ), São Lourenço (MG), Ribeirão Preto, Wenceslau Braz (PR), Machado (MG), Campo Belo (MG)
 # Each (south, north, west, east) – devices spawn in one random city and wander within it
 LAND_BOXES = [
     (-23.88, -23.40, -46.82, -46.38),   # São Paulo (município)
@@ -34,6 +34,15 @@ LAND_BOXES = [
     (-23.58, -23.50, -46.25, -46.15),   # Mogi das Cruzes
     (-23.30, -23.25, -46.75, -46.68),   # Francisco Morato
     (-22.98, -22.90, -46.58, -46.50),   # Bragança Paulista
+    (-20.88, -20.76, -49.44, -49.32),   # São José do Rio Preto
+    (-22.36, -22.26, -49.12, -49.00),   # Bauru
+    (-22.05, -21.95, -47.95, -47.83),   # São Carlos
+    (-22.58, -22.46, -44.16, -44.04),   # Volta Redonda (RJ)
+    (-22.16, -22.08, -45.10, -45.00),   # São Lourenço (MG)
+    (-21.24, -21.12, -47.88, -47.74),   # Ribeirão Preto
+    (-23.05, -22.95, -49.86, -49.74),   # Wenceslau Braz (PR)
+    (-21.74, -21.62, -45.98, -45.86),   # Machado (MG)
+    (-20.96, -20.84, -45.34, -45.22),   # Campo Belo (MG)
 ]
 
 
@@ -149,7 +158,7 @@ class GT06Device:
         self.imei = device_id
         self.lat, self.lon, self._box = random_land_position()
         self.speed = random.uniform(20, 100)
-        self.course = random.randint(0, 359)
+        self.course = random.randint(1, 359)  # avoid 0 (often treated as unknown)
         self.ignition = random.choice([True, False])
         self.serial = 1
         self.logged_in = False
@@ -158,6 +167,7 @@ class GT06Device:
     def move(self):
         self.lat, self.lon = wander_in_box(self.lat, self.lon, self._box)
         self.speed = max(0, min(120, self.speed + random.uniform(-5, 5)))
+        self.course = (self.course + random.randint(-15, 15)) % 360 or 360  # keep varying, avoid 0
         self.ignition = random.choice([True, False]) if random.random() < 0.05 else self.ignition
 
     async def connect(self, host, port):
@@ -229,7 +239,7 @@ class SuntechDevice:
         self.device_id = device_id
         self.lat, self.lon, self._box = random_land_position()
         self.speed = random.uniform(20, 100)
-        self.course = random.randint(0, 359)
+        self.course = random.randint(1, 359)
         self.serial = 1
         self.writer = None
 
@@ -278,15 +288,16 @@ class SuntechDevice:
 # ---------------------------------------------------------------------------
 # Osmand (HTTP GET, port 5055)
 # ---------------------------------------------------------------------------
-def build_osmand_request(host: str, port: int, device_id: str, lat: float, lon: float, close: bool = False) -> bytes:
+def build_osmand_request(host: str, port: int, device_id: str, lat: float, lon: float, course: float = 0, close: bool = False) -> bytes:
     ts_ms = int(time.time() * 1000)
+    bearing = int(round(course)) % 360 if course else 0
     params = {
         "id": device_id,
         "lat": f"{lat:.6f}",
         "lon": f"{lon:.6f}",
         "timestamp": str(ts_ms),
         "speed": "0",
-        "bearing": "0",
+        "bearing": str(bearing),
         "altitude": "0",
     }
     qs = urllib.parse.urlencode(params)
@@ -305,6 +316,7 @@ class OsmandDevice:
     def __init__(self, device_id: str):
         self.device_id = device_id
         self.lat, self.lon, self._box = random_land_position()
+        self.course = random.randint(1, 359)
         self.writer = None
         self.reader = None
 
@@ -336,7 +348,7 @@ class OsmandDevice:
             req = build_osmand_request(
                 getattr(self, "_host", "localhost"),
                 getattr(self, "_port", 5055),
-                self.device_id, self.lat, self.lon, close_after)
+                self.device_id, self.lat, self.lon, getattr(self, "course", 0), close_after)
             self.writer.write(req)
             await self.writer.drain()
             # Read response (required so next request can reuse connection or close cleanly)
@@ -379,7 +391,7 @@ class Tk103Device:
         self.device_id = device_id
         self.lat, self.lon, self._box = random_land_position()
         self.speed = random.uniform(20, 100)
-        self.course = random.randint(0, 359)
+        self.course = random.randint(1, 359)
         self.writer = None
 
     def move(self):
@@ -430,13 +442,13 @@ def build_teltonika_imei(imei: str) -> bytes:
     return struct.pack(">H", len(data)) + data
 
 
-def build_teltonika_avl(lat: float, lon: float, speed: float) -> bytes:
+def build_teltonika_avl(lat: float, lon: float, speed: float, course: float = 0) -> bytes:
     ts_ms = int(time.time() * 1000)
-    # Codec 8: codec 0x08, num_records 1. Record: timestamp 8, priority 1, lon 4, lat 4, alt 2, course 2, sat 1, speed 2, event 1, totalIO 1, then 4x count (0)
+    # Codec 8: codec 0x08, num_records 1. Record: timestamp 8, priority 1, lon 4, lat 4, alt 2, course 2 (0-359), sat 1, speed 2, event 1, totalIO 1, then 4x count (0)
     longitude = int(lon * 10000000)
     latitude = int(lat * 10000000)
     altitude = 0
-    angle = 0
+    angle = int(round(course)) % 360 if course else 0
     satellites = 12
     speed_cm = int(speed * 100)  # 0.01 km/h
     packet = (
@@ -455,6 +467,7 @@ class TeltonikaDevice:
         self.imei = device_id
         self.lat, self.lon, self._box = random_land_position()
         self.speed = random.uniform(20, 100)
+        self.course = random.randint(1, 359)
         self.logged_in = False
         self.writer = None
         self.reader = None
@@ -491,19 +504,19 @@ class TeltonikaDevice:
                 imei_pkt = build_teltonika_imei(self.imei)
                 self.writer.write(imei_pkt)
                 await self.writer.drain()
-                resp = await asyncio.wait_for(self.reader.read(1), timeout=2.0)
+                resp = await asyncio.wait_for(self.reader.read(1), timeout=8.0)
                 if resp != b"\x01":
                     raise ConnectionError("Teltonika login rejected")
                 self.logged_in = True
                 await asyncio.sleep(0.05)
-            avl = build_teltonika_avl(self.lat, self.lon, self.speed)
+            avl = build_teltonika_avl(self.lat, self.lon, self.speed, getattr(self, "course", 0))
             # AVL packet: 4 zero, 4 zero, then payload length (4 bytes), then payload
             length = len(avl)
             pkt = struct.pack(">I", 0) + struct.pack(">I", 0) + struct.pack(">I", length) + avl
             self.writer.write(pkt)
             await self.writer.drain()
-            # Server sends 4-byte ack (number of records received)
-            await asyncio.wait_for(self.reader.read(4), timeout=2.0)
+            # Server sends 4-byte ack (number of records received); use longer timeout to avoid spurious timeouts
+            await asyncio.wait_for(self.reader.read(4), timeout=8.0)
             self.move()
             if close_after:
                 self.disconnect()
@@ -562,7 +575,7 @@ class MeiligaoDevice:
         self.device_id = device_id
         self.lat, self.lon, self._box = random_land_position()
         self.speed = random.uniform(20, 100)
-        self.course = random.randint(0, 359)
+        self.course = random.randint(1, 359)
         self.writer = None
 
     def move(self):
@@ -631,14 +644,14 @@ class RuptelaDevice:
         self.device_id = device_id
         self.lat, self.lon, self._box = random_land_position()
         self.speed = random.uniform(20, 100)
-        self.course = random.randint(0, 359)
+        self.course = random.randint(1, 359)
         self.writer = None
         self.reader = None
 
     def move(self):
         self.lat, self.lon = wander_in_box(self.lat, self.lon, self._box)
         self.speed = max(0, min(120, self.speed + random.uniform(-5, 5)))
-        self.course = (self.course + random.randint(-10, 10)) % 360
+        self.course = (self.course + random.randint(-10, 10)) % 360 or 360
 
     async def connect(self, host, port):
         if self.writer is None:
@@ -708,7 +721,7 @@ class Gl200Device:
         self.device_id = device_id
         self.lat, self.lon, self._box = random_land_position()
         self.speed = random.uniform(20, 100)
-        self.course = random.randint(0, 359)
+        self.course = random.randint(1, 359)
         self.writer = None
 
     def move(self):
@@ -1047,6 +1060,9 @@ async def run_continuous_loop(state: list[dict], online_indices: list[int], stat
             for i in due_indices:
                 lat, lon = state[i]["lat"], state[i]["lon"]
                 next_lat, next_lon, course_deg = next_position_near(lat, lon, MAX_MOVE_METERS)
+                # Avoid course 0 when there is movement (many backends treat 0 as "unknown")
+                if course_deg == 0 and (next_lat != lat or next_lon != lon):
+                    course_deg = 360
                 state[i]["lat"] = next_lat
                 state[i]["lon"] = next_lon
                 state[i]["timestamp_sec"] = int(now)
