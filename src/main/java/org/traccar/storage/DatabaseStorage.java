@@ -670,14 +670,11 @@ public class DatabaseStorage extends Storage {
         }
     }
 
-    /** Row for status count query: status label and count. */
-    private static class StatusCountRow {
-        private String s;
-        private long cnt;
-        public String getS() { return s; }
-        public void setS(String s) { this.s = s; }
-        public long getCnt() { return cnt; }
-        public void setCnt(long cnt) { this.cnt = cnt; }
+    /** Row for status count query: status label and count. Package-private class + public constructor so QueryBuilder can newInstance() and set fields. */
+    static class StatusCountRow {
+        public StatusCountRow() {}
+        public String s;
+        public long cnt;
     }
 
     @Override
