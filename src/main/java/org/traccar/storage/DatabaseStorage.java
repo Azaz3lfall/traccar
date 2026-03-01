@@ -417,6 +417,124 @@ public class DatabaseStorage extends Storage {
         }
     }
 
+    private static final String MAP_CLUSTERS_TABLE = "tc_map_clusters";
+
+    /** Eps in meters per zoom band: 0=zoomed out (2km), 1=mid (3km), 2=zoomed in (1km). */
+    private static final double[] ZOOM_BAND_EPS_METERS = { 2000.0, 3000.0, 1000.0 };
+
+    @Override
+    public List<MapCellRow> getMapClustersForUser(long userId, double epsMeters) throws StorageException {
+        if (!databaseType.toLowerCase().contains("postgresql")) {
+            return List.of();
+        }
+        try {
+            if (!hasPostGIS()) {
+                return List.of();
+            }
+            String posTable = getStorageName(Position.class);
+            String devTable = getStorageName(Device.class);
+            String permittedDevices = buildPermittedDeviceIdsSubquery();
+            double epsDegrees = epsMeters / METERS_PER_DEGREE;
+            String sql = "WITH latest AS ("
+                    + "  SELECT p.id, p.deviceid, p.latitude, p.longitude, p.course, d.name AS name, COALESCE(d.status, 'offline') AS status, d.category AS category "
+                    + "  FROM ("
+                    + "    SELECT DISTINCT ON (deviceid) id, deviceid, latitude, longitude, course FROM " + posTable
+                    + "    WHERE deviceid IN (" + permittedDevices + ")"
+                    + "    ORDER BY deviceid, fixtime DESC"
+                    + "  ) p INNER JOIN " + devTable + " d ON d.id = p.deviceid"
+                    + "),"
+                    + " with_geom AS ("
+                    + "  SELECT *, ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geometry AS geom FROM latest"
+                    + "),"
+                    + " with_cluster AS ("
+                    + "  SELECT *, COALESCE("
+                    + "    ST_ClusterDBSCAN(geom, ?::double precision, 5) OVER (ORDER BY id),"
+                    + "    -ROW_NUMBER() OVER (ORDER BY id)"
+                    + "  ) AS cluster_id FROM with_geom"
+                    + ")"
+                    + " SELECT COUNT(*) AS count, AVG(latitude) AS latitude, AVG(longitude) AS longitude,"
+                    + " MIN(id) AS id, MIN(deviceid) AS deviceid, MIN(course) AS course, MIN(name) AS name, MIN(status) AS status, MIN(category) AS category"
+                    + " FROM with_cluster GROUP BY cluster_id";
+            var builder = QueryBuilder.create(config, dataSource, objectMapper, sql);
+            builder.setLong(0, userId);
+            builder.setLong(1, userId);
+            builder.setDouble(2, epsDegrees);
+            try (var stream = builder.executeQueryStreamed(MapCellRow.class)) {
+                return stream.toList();
+            }
+        } catch (SQLException e) {
+            LOGGER.warn("getMapClustersForUser: query failed", e);
+            throw new StorageException(e);
+        }
+    }
+
+    @Override
+    public void saveMapClusters(long userId, int zoomBand, List<MapCellRow> clusters) throws StorageException {
+        if (!databaseType.toLowerCase().contains("postgresql")) {
+            return;
+        }
+        try {
+            String deleteSql = "DELETE FROM " + MAP_CLUSTERS_TABLE + " WHERE userid = ? AND zoom_band = ?";
+            var deleteBuilder = QueryBuilder.create(config, dataSource, objectMapper, deleteSql);
+            deleteBuilder.setLong(0, userId);
+            deleteBuilder.setInteger(1, zoomBand);
+            deleteBuilder.executeUpdate();
+            if (clusters.isEmpty()) {
+                return;
+            }
+            String insertSql = "INSERT INTO " + MAP_CLUSTERS_TABLE
+                    + " (userid, zoom_band, latitude, longitude, count, position_id, deviceid, course, name, status, category)"
+                    + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            for (var row : clusters) {
+                var insertBuilder = QueryBuilder.create(config, dataSource, objectMapper, insertSql);
+                int i = 0;
+                insertBuilder.setLong(i++, userId);
+                insertBuilder.setInteger(i++, zoomBand);
+                insertBuilder.setDouble(i++, row.getLatitude());
+                insertBuilder.setDouble(i++, row.getLongitude());
+                insertBuilder.setLong(i++, row.getCount());
+                insertBuilder.setLong(i++, row.getCount() == 1 ? row.getId() : 0, true);
+                insertBuilder.setLong(i++, row.getCount() == 1 ? row.getDeviceId() : 0, true);
+                insertBuilder.setDouble(i++, row.getCourse());
+                insertBuilder.setString(i++, row.getName());
+                insertBuilder.setString(i++, row.getStatus());
+                insertBuilder.setString(i++, row.getCategory());
+                insertBuilder.executeUpdate();
+            }
+            LOGGER.debug("saveMapClusters: user {} zoom_band {} -> {} clusters", userId, zoomBand, clusters.size());
+        } catch (SQLException e) {
+            LOGGER.warn("saveMapClusters failed", e);
+            throw new StorageException(e);
+        }
+    }
+
+    @Override
+    public List<MapCellRow> getMapClustersFromCache(
+            long userId, int zoomBand, double minLat, double maxLat, double minLon, double maxLon)
+            throws StorageException {
+        if (!databaseType.toLowerCase().contains("postgresql")) {
+            return List.of();
+        }
+        try {
+            String sql = "SELECT latitude, longitude, count, position_id AS \"id\", deviceid AS \"deviceId\", course, name, status, category "
+                    + "FROM " + MAP_CLUSTERS_TABLE
+                    + " WHERE userid = ? AND zoom_band = ? AND latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?";
+            var builder = QueryBuilder.create(config, dataSource, objectMapper, sql);
+            builder.setLong(0, userId);
+            builder.setInteger(1, zoomBand);
+            builder.setDouble(2, minLat);
+            builder.setDouble(3, maxLat);
+            builder.setDouble(4, minLon);
+            builder.setDouble(5, maxLon);
+            try (var stream = builder.executeQueryStreamed(MapCellRow.class)) {
+                return stream.toList();
+            }
+        } catch (SQLException e) {
+            LOGGER.warn("getMapClustersFromCache failed", e);
+            return List.of();
+        }
+    }
+
     @Override
     public Stream<Device> getDevicesWithFilters(
             long userId, Columns columns, boolean skipPermissionFilter, Long groupId, String status, String search,

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+  xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.4.xsd"
+  logicalFilePath="changelog-6.12.0">
+
+  <changeSet author="author" id="changelog-6.12.0-map-clusters">
+
+    <preConditions onFail="MARK_RAN">
+      <dbms type="postgresql" />
+    </preConditions>
+
+    <comment>Precomputed map clusters cache: user_id, zoom_band (0=zoomed out, 1=mid, 2=zoomed in), cluster centroid and count. Refreshed by cron every few minutes to avoid heavy clustering on each map load.</comment>
+
+    <createTable tableName="tc_map_clusters">
+      <column name="userid" type="BIGINT">
+        <constraints nullable="false" />
+      </column>
+      <column name="zoom_band" type="SMALLINT">
+        <constraints nullable="false" />
+      </column>
+      <column name="latitude" type="DOUBLE PRECISION">
+        <constraints nullable="false" />
+      </column>
+      <column name="longitude" type="DOUBLE PRECISION">
+        <constraints nullable="false" />
+      </column>
+      <column name="count" type="INTEGER">
+        <constraints nullable="false" />
+      </column>
+      <column name="position_id" type="BIGINT" />
+      <column name="deviceid" type="BIGINT" />
+      <column name="course" type="DOUBLE PRECISION" />
+      <column name="name" type="VARCHAR(128)" />
+      <column name="status" type="VARCHAR(128)" />
+      <column name="category" type="VARCHAR(128)" />
+    </createTable>
+
+    <createIndex indexName="tc_map_clusters_userid_zoom_band" tableName="tc_map_clusters">
+      <column name="userid" />
+      <column name="zoom_band" />
+    </createIndex>
+
+    <createIndex indexName="tc_map_clusters_userid_zoom_lat_lon" tableName="tc_map_clusters">
+      <column name="userid" />
+      <column name="zoom_band" />
+      <column name="latitude" />
+      <column name="longitude" />
+    </createIndex>
+
+  </changeSet>
+
+</databaseChangeLog>

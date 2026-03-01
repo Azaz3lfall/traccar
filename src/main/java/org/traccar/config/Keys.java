@@ -2040,4 +2040,13 @@ public final class Keys {
             "broadcast.secondary",
             List.of(KeyType.CONFIG));
 
+    /**
+     * Map cluster cache refresh period in seconds. Precomputed clusters are stored and updated by a scheduled task
+     * so /api/positions/map returns quickly. Default 180 (3 minutes).
+     */
+    public static final ConfigKey<Long> MAP_CLUSTER_CACHE_PERIOD = new LongConfigKey(
+            "map.clusterCache.period",
+            List.of(KeyType.CONFIG),
+            180L);
+
 }

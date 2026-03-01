@@ -375,14 +375,18 @@ public class PositionResource extends BaseResource {
         double maxLon = bounds.getMaxLon();
         double factor = expandFactor != null ? Math.max(0, Math.min(2, expandFactor)) : DEFAULT_EXPAND_FACTOR;
         Bounds expanded = expandBounds(minLat, maxLat, minLon, maxLon, factor);
-        int zoomForClustering = zoom >= NO_CLUSTER_ZOOM_THRESHOLD ? 22 : zoom;
-        List<MapCellRow> cells;
-        if (storage.hasPostGIS()) {
-            double epsMeters = epsMetersForMap(zoomForClustering, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon());
-            cells = storage.getMapCellsInBoundsDistance(userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(), epsMeters);
-        } else {
-            double cellDeg = cellDegForZoom(zoomForClustering);
-            cells = storage.getMapCellsInBounds(userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(), cellDeg);
+        // Initial load shows full extent of positions; use zoom band 0 (zoomed-out clusters) and filter by bounds
+        List<MapCellRow> cells = storage.getMapClustersFromCache(
+                userId, 0, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon());
+        if (cells.isEmpty()) {
+            int zoomForClustering = zoom >= NO_CLUSTER_ZOOM_THRESHOLD ? 22 : zoom;
+            if (storage.hasPostGIS()) {
+                double epsMeters = epsMetersForMap(zoomForClustering, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon());
+                cells = storage.getMapCellsInBoundsDistance(userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(), epsMeters);
+            } else {
+                double cellDeg = cellDegForZoom(zoomForClustering);
+                cells = storage.getMapCellsInBounds(userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(), cellDeg);
+            }
         }
         PositionsMapResponse plot = mapCellsToResponse(cells);
         MapInitialResponse response = new MapInitialResponse();

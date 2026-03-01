@@ -127,4 +127,29 @@ public abstract class Storage {
         return Stream.empty();
     }
 
+    /**
+     * Returns precomputed map clusters for a user at a given zoom band (0=zoomed out, 1=mid, 2=zoomed in).
+     * Used by scheduled task to populate cache. Implemented only for PostgreSQL with PostGIS.
+     */
+    public List<MapCellRow> getMapClustersForUser(long userId, double epsMeters) throws StorageException {
+        return Collections.emptyList();
+    }
+
+    /**
+     * Saves precomputed clusters for a user and zoom band. Replaces any existing cache for that user/band.
+     * Implemented only for PostgreSQL.
+     */
+    public void saveMapClusters(long userId, int zoomBand, List<MapCellRow> clusters) throws StorageException {
+    }
+
+    /**
+     * Returns precomputed map clusters from cache for the given user, zoom band, and bounds.
+     * Implemented only for PostgreSQL. Returns empty list if cache is empty or not applicable.
+     */
+    public List<MapCellRow> getMapClustersFromCache(
+            long userId, int zoomBand, double minLat, double maxLat, double minLon, double maxLon)
+            throws StorageException {
+        return Collections.emptyList();
+    }
+
 }
