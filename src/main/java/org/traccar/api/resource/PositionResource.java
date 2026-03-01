@@ -103,7 +103,7 @@ public class PositionResource extends BaseResource {
     /** From zoom 16 onward do not cluster: return each position individually. */
     private static final int NO_CLUSTER_ZOOM_THRESHOLD = 16;
     /** When zoom is smaller than this, return only clusters (no single points). */
-    private static final int MIN_ZOOM_FOR_SINGLE_POINTS = 6;
+    private static final int MIN_ZOOM_FOR_SINGLE_POINTS = 13;
 
     /** Zoom level from longitude span (narrow bounds => higher zoom => smaller cells). */
     private static int zoomFromLonSpan(double lonSpan) {
@@ -130,14 +130,16 @@ public class PositionResource extends BaseResource {
     /** Min/max cluster radius (meters). Only cluster close items; tight range avoids re-clustering. */
     private static final double MIN_EPS_METERS = 200.0;
     private static final double MAX_EPS_METERS = 1000.0;
+    /** For zoom &lt; 8: allow much larger clusters so they are not over-distributed. */
+    private static final double BIG_CLUSTER_MAX_EPS_METERS = 15_000.0;
 
     /**
-     * Max cluster radius from zoom level. When zoomed out (low zoom), use smaller max so we get
-     * multiple clusters across the map instead of one giant cluster. When zoomed in, allow larger eps.
+     * Max cluster radius from zoom level. Zoom &lt; 8: big clusters (up to ~15 km). Zoom 8–10: moderate.
+     * Higher zoom: tighter max (1 km).
      */
     private static double maxEpsForZoom(int zoom) {
-        if (zoom <= 7) {
-            return 2000.0;  // ~2 km when zoomed out: more clusters
+        if (zoom < 8) {
+            return BIG_CLUSTER_MAX_EPS_METERS;  // big clusters, less distributed
         }
         if (zoom <= 10) {
             return 3000.0;  // ~3 km
@@ -160,13 +162,18 @@ public class PositionResource extends BaseResource {
         return Math.max(MIN_EPS_METERS, Math.min(MAX_EPS_METERS, maxEps));
     }
 
-    /** Effective eps: zoom-based value capped by bounds-derived max and zoom-based max (and global min/max). */
+    /** Effective eps: zoom-based value capped by bounds-derived max and zoom-based max (and global min/max).
+     * For zoom &lt; 8 uses higher cap so clusters can be large (not over-distributed). */
     private static double epsMetersForMap(int zoom, double minLat, double maxLat, double minLon, double maxLon) {
         double fromZoom = epsMetersForZoom(zoom);
         double maxFromBounds = maxEpsFromBounds(minLat, maxLat, minLon, maxLon);
         double zoomBasedMax = maxEpsForZoom(zoom);
+        double maxCap = zoom < 8 ? BIG_CLUSTER_MAX_EPS_METERS : MAX_EPS_METERS;
+        if (zoom < 8) {
+            maxFromBounds = Math.max(maxFromBounds, maxCap);  // allow big clusters, don't over-limit by bounds
+        }
         double eps = Math.min(Math.min(fromZoom, maxFromBounds), zoomBasedMax);
-        return Math.max(MIN_EPS_METERS, Math.min(MAX_EPS_METERS, eps));
+        return Math.max(MIN_EPS_METERS, Math.min(maxCap, eps));
     }
 
     /** Expand bounds by factor on each side (e.g. 0.5 = 50% each side). Lat clamped to [-90,90], lon to [-180,180]. */
@@ -317,7 +324,7 @@ public class PositionResource extends BaseResource {
     }
 
     /** Converts DB cluster rows (one per cell) to positions list + clusters list. No grouping in memory.
-     * When includeSinglePoints is false (e.g. zoom &lt; 6), all cells are returned as clusters only. */
+     * When includeSinglePoints is false (e.g. zoom &lt; 13), all cells are returned as clusters only. */
     private static PositionsMapResponse mapCellsToResponse(List<MapCellRow> cells, boolean includeSinglePoints) {
         var positions = new ArrayList<PositionMapItem>();
         var clusters = new ArrayList<PositionCluster>();
