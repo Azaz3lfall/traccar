@@ -1,5 +1,7 @@
 package org.traccar.model;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 import java.util.Collection;
 
 public class Page<T> {
@@ -8,11 +10,14 @@ public class Page<T> {
     private long totalElements;
     private int offset;
     private int limit;
-    /** Total devices with status online (devices list only). */
+    /** Total devices with status online (devices list only). Always included in JSON. */
+    @JsonInclude(JsonInclude.Include.ALWAYS)
     private Long totalOnline;
-    /** Total devices with status offline (devices list only). */
+    /** Total devices with status offline (devices list only). Always included in JSON. */
+    @JsonInclude(JsonInclude.Include.ALWAYS)
     private Long totalOffline;
-    /** Total devices with status unknown (devices list only). */
+    /** Total devices with status unknown (devices list only). Always included in JSON. */
+    @JsonInclude(JsonInclude.Include.ALWAYS)
     private Long totalUnknown;
 
     public Page(Collection<T> content, long totalElements, int offset, int limit) {
