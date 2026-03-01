@@ -1,30 +1,29 @@
 #!/bin/bash
-# Real-time connection counts for load-test protocol ports only.
-# If the load test hits "OSError: [Errno 24] Too many open files", raise the limit:
-#   ulimit -n 65535
-# (or add to /etc/security/limits.conf and re-login)
+# Traccar realtime connection monitor. Run: ./conn-monitor.sh
 
-PORTS=':5002|:5004|:5009|:5011|:5023|:5027|:5046|:5055'
+watch -n1 '
+echo "=== Traccar Realtime Monitor ==="
+date
+echo
 
-while true; do
-  clear
-  echo "=== Load-test ports (5002,5004,5009,5011,5023,5027,5046,5055) — $(date) ==="
-  echo ""
-  estab=$(ss -tn state established 2>/dev/null | grep -E "$PORTS" | wc -l)
-  twait=$(ss -tn state time-wait 2>/dev/null | grep -E "$PORTS" | wc -l)
-  echo "  ESTABLISHED: $estab"
-  echo "  TIME-WAIT:   $twait"
-  echo "  TOTAL:       $((estab + twait))"
-  echo ""
-  limit=$(ulimit -n)
-  pid=$(pgrep -f "load-test\.py" | head -1)
-  if [ -n "$pid" ] && [ -d "/proc/$pid/fd" ]; then
-    current=$(ls /proc/$pid/fd 2>/dev/null | wc -l)
-    echo "  Open files (load-test pid $pid): $current / $limit"
-  else
-    echo "  Open files: — / $limit  (load-test not running?)"
-  fi
-  echo "  (If 'Too many open files', run: ulimit -n 65535 before starting load-test)"
-  echo ""
-  sleep 1
-done
+echo "Total TCP connections:"
+ss -tan | wc -l
+
+echo
+echo "Established connections:"
+ss -tan state established | wc -l
+
+echo
+echo "TIME_WAIT connections:"
+ss -tan state time-wait | wc -l
+
+echo
+echo "Web UI / WebSocket (8082):"
+ss -tan | grep :8082 | wc -l
+
+
+
+echo
+echo "Java (Traccar) sockets:"
+ss -tanp | grep java | wc -l
+'

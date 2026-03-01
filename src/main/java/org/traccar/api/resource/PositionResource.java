@@ -102,6 +102,8 @@ public class PositionResource extends BaseResource {
 
     /** From zoom 16 onward do not cluster: return each position individually. */
     private static final int NO_CLUSTER_ZOOM_THRESHOLD = 16;
+    /** When zoom is smaller than this, return only clusters (no single points). */
+    private static final int MIN_ZOOM_FOR_SINGLE_POINTS = 6;
 
     /** Zoom level from longitude span (narrow bounds => higher zoom => smaller cells). */
     private static int zoomFromLonSpan(double lonSpan) {
@@ -222,7 +224,8 @@ public class PositionResource extends BaseResource {
             }
             LOGGER.info("API /positions map-view: userId={} bounds=[{},{},{},{}] zoom={} -> {} cells from DB",
                     userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(), effectiveZoom, cells.size());
-            PositionsMapResponse mapResponse = mapCellsToResponse(cells);
+            boolean includeSinglePoints = effectiveZoom >= MIN_ZOOM_FOR_SINGLE_POINTS;
+            PositionsMapResponse mapResponse = mapCellsToResponse(cells, includeSinglePoints);
             return Response.ok(mapResponse).build();
         }
         if (!positionIds.isEmpty()) {
@@ -313,12 +316,13 @@ public class PositionResource extends BaseResource {
         }
     }
 
-    /** Converts DB cluster rows (one per cell) to positions list + clusters list. No grouping in memory. */
-    private static PositionsMapResponse mapCellsToResponse(List<MapCellRow> cells) {
+    /** Converts DB cluster rows (one per cell) to positions list + clusters list. No grouping in memory.
+     * When includeSinglePoints is false (e.g. zoom &lt; 6), all cells are returned as clusters only. */
+    private static PositionsMapResponse mapCellsToResponse(List<MapCellRow> cells, boolean includeSinglePoints) {
         var positions = new ArrayList<PositionMapItem>();
         var clusters = new ArrayList<PositionCluster>();
         for (var row : cells) {
-            if (row.getCount() == 1) {
+            if (includeSinglePoints && row.getCount() == 1) {
                 PositionMapItem item = new PositionMapItem();
                 item.setId(row.getId());
                 item.setDeviceId(row.getDeviceId());
@@ -388,7 +392,8 @@ public class PositionResource extends BaseResource {
                 cells = storage.getMapCellsInBounds(userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(), cellDeg);
             }
         }
-        PositionsMapResponse plot = mapCellsToResponse(cells);
+        boolean includeSinglePoints = zoom >= MIN_ZOOM_FOR_SINGLE_POINTS;
+        PositionsMapResponse plot = mapCellsToResponse(cells, includeSinglePoints);
         MapInitialResponse response = new MapInitialResponse();
         response.setMinLat(expanded.minLat());
         response.setMaxLat(expanded.maxLat());
