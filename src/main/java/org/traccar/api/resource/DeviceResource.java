@@ -226,12 +226,30 @@ public class DeviceResource extends BaseObjectResource<Device> {
                 
                 if (offset > 0 || limit > 0) {
                     Page<Device> page = new Page<>(content, totalElements, offset, limit);
+                    // Global status counts from DB. Prefer getDeviceStatusCounts (Postgres); else count from same DB stream as existing path.
                     DeviceStatusCounts statusCounts = storage.getDeviceStatusCounts(
-                            effectiveUserId, skipPermissionFilter, groupId, search,
-                            lastUpdateFrom, lastUpdateTo);
-                    page.setTotalOnline(statusCounts != null ? statusCounts.online() : 0L);
-                    page.setTotalOffline(statusCounts != null ? statusCounts.offline() : 0L);
-                    page.setTotalUnknown(statusCounts != null ? statusCounts.unknown() : 0L);
+                            effectiveUserId, skipPermissionFilter, null, null, null, null);
+                    if (statusCounts != null) {
+                        page.setTotalOnline(statusCounts.online());
+                        page.setTotalOffline(statusCounts.offline());
+                        page.setTotalUnknown(statusCounts.unknown());
+                    } else {
+                        var conditions = new LinkedList<Condition>();
+                        if (!skipPermissionFilter) {
+                            conditions.add(new Condition.Permission(User.class, effectiveUserId, baseClass));
+                        }
+                        try (Stream<Device> stream = getFilteredStream(columns, conditions, null)) {
+                            Map<String, Long> m = stream.collect(Collectors.groupingBy(
+                                    d -> d.getStatus() != null ? d.getStatus().toLowerCase() : Device.STATUS_OFFLINE,
+                                    Collectors.counting()));
+                            long on = m.getOrDefault(Device.STATUS_ONLINE, 0L);
+                            long off = m.getOrDefault(Device.STATUS_OFFLINE, 0L);
+                            long tot = m.values().stream().mapToLong(Long::longValue).sum();
+                            page.setTotalOnline(on);
+                            page.setTotalOffline(off);
+                            page.setTotalUnknown(tot - on - off);
+                        }
+                    }
                     return Response.ok(page).build();
                 } else {
                     return Response.ok(content).build();

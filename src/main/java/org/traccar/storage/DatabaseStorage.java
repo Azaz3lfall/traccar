@@ -670,18 +670,27 @@ public class DatabaseStorage extends Storage {
         }
     }
 
-    /** Row for status count query: status label and count. Package-private class + public constructor so QueryBuilder can newInstance() and set fields. */
+    /** Row for status count query: status label and count. Setters required so QueryBuilder can map ResultSet columns (s, cnt) via reflection. */
     static class StatusCountRow {
         public StatusCountRow() {}
         public String s;
         public long cnt;
+
+        public void setS(String s) {
+            this.s = s;
+        }
+
+        public void setCnt(long cnt) {
+            this.cnt = cnt;
+        }
     }
 
     @Override
     public DeviceStatusCounts getDeviceStatusCounts(
             long userId, boolean skipPermissionFilter, Long groupId, String search,
             Date lastUpdateFrom, Date lastUpdateTo) throws StorageException {
-        if (!databaseType.toLowerCase().contains("postgresql")) {
+        String db = databaseType.toLowerCase();
+        if (!db.contains("postgresql") && !db.contains("postgres")) {
             return null;
         }
         try {
