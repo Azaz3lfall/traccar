@@ -48,7 +48,7 @@ echo 'Java (Traccar) sockets:'
 ss -tanp | grep java | wc -l
 
 echo
-echo 'Reverse Geocoder Requests per second:'
+echo 'Reverse Geocoder Requests:'
 ss -tan state established | awk '\$4 ~ /:8080\$/ {c++} END {print c+0}'
 
 echo
