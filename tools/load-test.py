@@ -16,7 +16,8 @@ import sys
 import urllib.parse
 
 # Multi-city: São Paulo metro + Guarulhos, Barueri, Campinas, ... + São José do Rio Preto, Bauru, São Carlos,
-# Volta Redonda (RJ), São Lourenço (MG), Ribeirão Preto, Wenceslau Braz (PR), Machado (MG), Campo Belo (MG)
+# Volta Redonda (RJ), Ribeirão Preto, Wenceslau Braz (PR), Machado (MG), Campo Belo (MG),
+# Uberaba, Petrópolis, Juiz de Fora, Belo Horizonte, Araçatuba, Uberlândia
 # Each (south, north, west, east) – devices spawn in one random city and wander within it
 LAND_BOXES = [
     (-23.88, -23.40, -46.82, -46.38),   # São Paulo (município)
@@ -38,11 +39,16 @@ LAND_BOXES = [
     (-22.36, -22.26, -49.12, -49.00),   # Bauru
     (-22.05, -21.95, -47.95, -47.83),   # São Carlos
     (-22.58, -22.46, -44.16, -44.04),   # Volta Redonda (RJ)
-    (-22.16, -22.08, -45.10, -45.00),   # São Lourenço (MG)
     (-21.24, -21.12, -47.88, -47.74),   # Ribeirão Preto
     (-23.05, -22.95, -49.86, -49.74),   # Wenceslau Braz (PR)
     (-21.74, -21.62, -45.98, -45.86),   # Machado (MG)
     (-20.96, -20.84, -45.34, -45.22),   # Campo Belo (MG)
+    (-19.80, -19.70, -47.98, -47.88),   # Uberaba (MG)
+    (-22.56, -22.46, -43.24, -43.12),   # Petrópolis (RJ)
+    (-21.82, -21.70, -43.42, -43.28),   # Juiz de Fora (MG)
+    (-20.02, -19.82, -44.08, -43.80),   # Belo Horizonte (MG)
+    (-21.26, -21.16, -50.48, -50.38),   # Araçatuba (SP)
+    (-18.98, -18.86, -48.35, -48.23),   # Uberlândia (MG)
 ]
 
 

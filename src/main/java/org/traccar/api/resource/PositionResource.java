@@ -320,12 +320,12 @@ public class PositionResource extends BaseResource {
     }
 
     /** Converts DB cluster rows (one per cell) to positions list + clusters list. No grouping in memory.
-     * When includeSinglePoints is false (e.g. zoom &lt; 13), all cells are returned as clusters only. */
+     * Count==1 is always a single position; count&gt;1 is always a cluster (never show a "cluster" of one point). */
     private static PositionsMapResponse mapCellsToResponse(List<MapCellRow> cells, boolean includeSinglePoints) {
         var positions = new ArrayList<PositionMapItem>();
         var clusters = new ArrayList<PositionCluster>();
         for (var row : cells) {
-            if (includeSinglePoints && row.getCount() == 1) {
+            if (row.getCount() == 1) {
                 PositionMapItem item = new PositionMapItem();
                 item.setId(row.getId());
                 item.setDeviceId(row.getDeviceId());
