@@ -32,7 +32,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Precomputes map clusters for all users at 3 zoom bands (zoomed out, mid, zoomed in)
+ * Precomputes map clusters for all users at 9 zoom bands (band 0 = most zoomed out, band 8 = most zoomed in)
  * and stores them in tc_map_clusters. Runs periodically so /api/positions/map can serve
  * from cache instead of running heavy ST_ClusterDBSCAN on every request.
  */
@@ -40,7 +40,11 @@ public class TaskMapClusterCache extends SingleScheduleTask {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TaskMapClusterCache.class);
 
-    private static final double[] ZOOM_BAND_EPS_METERS = { 2000.0, 3000.0, 1000.0 };
+    /** Eps in meters per band: 0=500km, 1=200km, 2=100km, 3=50km, 4=20km, 5=10km, 6=5km, 7=2km, 8=1km. */
+    private static final double[] ZOOM_BAND_EPS_METERS = {
+        500_000.0, 200_000.0, 100_000.0, 50_000.0, 20_000.0,
+        10_000.0, 5_000.0, 2_000.0, 1_000.0
+    };
 
     private final Storage storage;
     private final long periodSeconds;

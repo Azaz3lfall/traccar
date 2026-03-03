@@ -14,6 +14,7 @@ import time
 import argparse
 import sys
 import urllib.parse
+from collections import defaultdict
 
 # Multi-city: São Paulo metro + Guarulhos, Barueri, Campinas, ... + São José do Rio Preto, Bauru, São Carlos,
 # Volta Redonda (RJ), Ribeirão Preto, Wenceslau Braz (PR), Machado (MG), Campo Belo (MG),
@@ -1039,20 +1040,24 @@ async def run_continuous_loop(state: list[dict], online_indices: list[int], stat
     min_interval = 1.0 / args.max_rps if args.max_rps else 0.0
     last_send_time = [0.0]
     stats = {"success": 0, "failed": 0}
+    by_protocol = defaultdict(lambda: {"ok": 0, "fail": 0})
+    bootstrap_done = [False]
 
     async def coordinator():
         while not shutdown_event.is_set():
-            try:
-                await asyncio.wait_for(asyncio.shield(shutdown_event.wait()), timeout=1.0)
-            except asyncio.TimeoutError:
-                pass
+            # Don't wait 1s when bootstrap is pending so all first reports are queued immediately
+            bootstrap_pending = any(d["timestamp_sec"] == 0 for d in state)
+            if not bootstrap_pending:
+                try:
+                    await asyncio.wait_for(asyncio.shield(shutdown_event.wait()), timeout=1.0)
+                except asyncio.TimeoutError:
+                    pass
             if shutdown_event.is_set():
                 break
             now = time.time()
             due_set = set(due_list)
             # Phase 1: first report for EVERY device in state (bootstrap), regardless of online_pct.
             # Phase 2: periodic updates only for online_indices respecting report_interval.
-            bootstrap_pending = any(d["timestamp_sec"] == 0 for d in state)
             if bootstrap_pending:
                 # First, send once for all devices that never reported yet (full state, not just online_indices)
                 due_indices = [i for i, d in enumerate(state) if d["timestamp_sec"] == 0 and i not in due_set]
@@ -1062,6 +1067,8 @@ async def run_continuous_loop(state: list[dict], online_indices: list[int], stat
                                if now - state[i]["timestamp_sec"] >= report_interval and i not in due_set]
             if not due_indices:
                 continue
+            if bootstrap_pending:
+                print(f"Bootstrap: queuing {len(due_indices)} devices for first report...")
             # Generate all coordinates for this round, then save file once, then enqueue
             for i in due_indices:
                 lat, lon = state[i]["lat"], state[i]["lon"]
@@ -1092,13 +1099,24 @@ async def run_continuous_loop(state: list[dict], online_indices: list[int], stat
                 await asyncio.sleep(0.1)
                 continue
             device_state = state[idx]
+            proto = device_state["protocol"]
             ok = await send_one_report(device_state, args.host, args, rate_limit_lock, min_interval, last_send_time)
             if ok:
                 stats["success"] += 1
+                by_protocol[proto]["ok"] += 1
                 if stats["success"] % 1000 == 0:
                     print(f"Sent {stats['success']} reports (failed={stats['failed']})...")
             else:
                 stats["failed"] += 1
+                by_protocol[proto]["fail"] += 1
+            total_done = stats["success"] + stats["failed"]
+            if total_done >= len(state) and not bootstrap_done[0]:
+                bootstrap_done[0] = True
+                print(f"Bootstrap complete: {stats['success']} sent, {stats['failed']} failed (expected {len(state)} devices)")
+                for p in sorted(by_protocol):
+                    o, f = by_protocol[p]["ok"], by_protocol[p]["fail"]
+                    if o or f:
+                        print(f"  {p}: ok={o}, fail={f}")
 
     num_workers = args.concurrency
     workers = [asyncio.create_task(worker()) for _ in range(num_workers)]
@@ -1107,6 +1125,12 @@ async def run_continuous_loop(state: list[dict], online_indices: list[int], stat
     async def shutdown_waiter():
         await shutdown_event.wait()
         coord.cancel()
+        # Drain due_list so all queued reports (e.g. bootstrap) are sent before we exit
+        drain_deadline = time.time() + 120.0
+        while due_list and time.time() < drain_deadline:
+            await asyncio.sleep(0.2)
+        if due_list:
+            print(f"\nShutdown: {len(due_list)} reports still queued (drain timeout).")
         for w in workers:
             w.cancel()
 
@@ -1116,12 +1140,17 @@ async def run_continuous_loop(state: list[dict], online_indices: list[int], stat
     except asyncio.CancelledError:
         pass
     finally:
+        print(f"\nSent {stats['success']} reports, {stats['failed']} failed.")
+        for p in sorted(by_protocol):
+            o, f = by_protocol[p]["ok"], by_protocol[p]["fail"]
+            if o or f:
+                print(f"  {p}: ok={o}, fail={f}")
         # One final save on exit (Ctrl+C or cancel) so file is never left corrupted
         try:
             save_state(state_file, state)
-            print("\nState saved.")
+            print("State saved.")
         except Exception as e:
-            print(f"\nSave on exit failed: {e}")
+            print(f"Save on exit failed: {e}")
         tmp_path = state_file + ".tmp"
         if os.path.exists(tmp_path):
             try:
@@ -1302,6 +1331,7 @@ async def main():
     state = [d for d in state if d["protocol"] in protocol_list]
     if not state:
         parser.error("No devices left after filtering by --protocols")
+    print(f"Devices in state: {len(state)} (each will send at least one report if bootstrap pending)")
     n_online = max(1, int(len(state) * args.online_pct / 100))
     online_indices = random.sample(range(len(state)), n_online)
     print(f"Online: {n_online} devices ({args.online_pct}%)")

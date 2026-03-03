@@ -420,8 +420,8 @@ public class DatabaseStorage extends Storage {
 
     private static final String MAP_CLUSTERS_TABLE = "tc_map_clusters";
 
-    /** Eps in meters per zoom band: 0=zoomed out (2km), 1=mid (3km), 2=zoomed in (1km). */
-    private static final double[] ZOOM_BAND_EPS_METERS = { 2000.0, 3000.0, 1000.0 };
+    /** Eps in meters per zoom band: 0=500km .. 8=1km (9 bands). Used for reference; task defines actual values. */
+    private static final int MAP_CLUSTER_ZOOM_BANDS = 9;
 
     @Override
     public List<MapCellRow> getMapClustersForUser(long userId, double epsMeters) throws StorageException {
