@@ -973,6 +973,8 @@ async def send_one_report(device_state: dict, host: str, args, rate_limit_lock: 
     lat = device_state["lat"]
     lon = device_state["lon"]
     course_deg = device_state.get("course", 0)
+    if course_deg == 0:
+        course_deg = random.randint(1, 360)
     speed = random.uniform(20, 80)
     device = device_class(device_id)
     device.lat = lat
@@ -1073,9 +1075,8 @@ async def run_continuous_loop(state: list[dict], online_indices: list[int], stat
             for i in due_indices:
                 lat, lon = state[i]["lat"], state[i]["lon"]
                 next_lat, next_lon, course_deg = next_position_near(lat, lon, MAX_MOVE_METERS)
-                # Avoid course 0 when there is movement (many backends treat 0 as "unknown")
-                if course_deg == 0 and (next_lat != lat or next_lon != lon):
-                    course_deg = 360
+                if course_deg == 0:
+                    course_deg = random.randint(1, 360)
                 state[i]["lat"] = next_lat
                 state[i]["lon"] = next_lon
                 state[i]["timestamp_sec"] = int(now)

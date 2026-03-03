@@ -269,9 +269,9 @@ public class DatabaseStorage extends Storage {
             String posTable = getStorageName(Position.class);
             String devTable = getStorageName(Device.class);
             String permittedDevices = buildPermittedDeviceIdsSubquery();
-            String sql = "SELECT p.id, p.deviceid, p.latitude, p.longitude, d.name AS name, COALESCE(d.status, 'offline') AS status "
+            String sql = "SELECT p.id, p.deviceid, p.latitude, p.longitude, p.course, d.name AS name, COALESCE(d.status, 'offline') AS status, d.category AS category "
                     + "FROM ("
-                    + "  SELECT DISTINCT ON (deviceid) id, deviceid, latitude, longitude FROM " + posTable
+                    + "  SELECT DISTINCT ON (deviceid) id, deviceid, latitude, longitude, course FROM " + posTable
                     + "  WHERE latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?"
                     + "  AND deviceid IN (" + permittedDevices + ")"
                     + "  ORDER BY deviceid, fixtime DESC"

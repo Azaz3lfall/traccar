@@ -166,6 +166,11 @@ public class PositionResource extends BaseResource {
             if (effectiveZoom >= NO_CLUSTER_ZOOM_THRESHOLD) {
                 List<PositionMapItem> positionsInBounds = storage.getPositionsInBoundsForMapView(
                         userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon());
+                for (var item : positionsInBounds) {
+                    if (item.getCourse() == 0) {
+                        item.setCourse(360);
+                    }
+                }
                 PositionsMapResponse mapResponse = new PositionsMapResponse(positionsInBounds, List.of());
                 LOGGER.info("API /positions map-view: userId={} bounds=[{},{},{},{}] zoom={} (no cluster) -> {} positions",
                         userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(), effectiveZoom, positionsInBounds.size());
@@ -268,6 +273,11 @@ public class PositionResource extends BaseResource {
         }
     }
 
+    /** Course 0 is treated as unknown by many clients; API never returns 0, use 360 instead. */
+    private static double normalizeCourse(double course) {
+        return course == 0 ? 360 : course;
+    }
+
     /** Converts DB cluster rows (one per cell) to positions list + clusters list. No grouping in memory.
      * When includeSinglePoints: count==1 → position, count&gt;1 → cluster. When false (zoom ≤5): all as clusters. */
     private static PositionsMapResponse mapCellsToResponse(List<MapCellRow> cells, boolean includeSinglePoints) {
@@ -280,7 +290,7 @@ public class PositionResource extends BaseResource {
                 item.setDeviceId(row.getDeviceId());
                 item.setLatitude(row.getLatitude());
                 item.setLongitude(row.getLongitude());
-                item.setCourse(row.getCourse());
+                item.setCourse(normalizeCourse(row.getCourse()));
                 item.setName(row.getName());
                 item.setStatus(row.getStatus());
                 item.setCategory(row.getCategory());
