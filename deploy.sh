@@ -117,23 +117,23 @@ EOF
 
         # Upload (rsync = only changed files/deltas after first deploy; -z = compress)
         show_progress "Uploading binaries..."
-        SSH_OPTS="-o StrictHostKeyChecking=no"
+        SSH_OPTS="-o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=3"
         echo "   -> tracker-server.jar (rsync)"
-        sshpass -p "$REMOTE_PASS" rsync -az -e "ssh $SSH_OPTS" target/tracker-server.jar "$REMOTE_USER@$REMOTE_HOST:/tmp/"
-        echo "   -> lib/ (rsync, delta only)"
-        sshpass -p "$REMOTE_PASS" rsync -az --delete -e "ssh $SSH_OPTS" target/lib/ "$REMOTE_USER@$REMOTE_HOST:/tmp/lib/"
+        sshpass -p "$REMOTE_PASS" rsync -az --progress -e "ssh $SSH_OPTS" target/tracker-server.jar "$REMOTE_USER@$REMOTE_HOST:/tmp/"
+        echo "   -> lib/ (rsync, delta only; may take a minute...)"
+        sshpass -p "$REMOTE_PASS" rsync -az --delete --progress -e "ssh $SSH_OPTS" target/lib/ "$REMOTE_USER@$REMOTE_HOST:/tmp/lib/"
         echo "   -> schema/ (rsync, delta only)"
-        sshpass -p "$REMOTE_PASS" rsync -az --delete -e "ssh $SSH_OPTS" schema/ "$REMOTE_USER@$REMOTE_HOST:/tmp/schema/"
-        echo "   -> tools/load-test.py, tools/conn-monitor.sh"
-        sshpass -p "$REMOTE_PASS" scp -o StrictHostKeyChecking=no tools/load-test.py tools/conn-monitor.sh "$REMOTE_USER@$REMOTE_HOST:/tmp/"
+        sshpass -p "$REMOTE_PASS" rsync -az --delete --progress -e "ssh $SSH_OPTS" schema/ "$REMOTE_USER@$REMOTE_HOST:/tmp/schema/"
+        echo "   -> tools/load-test.py, tools/conn-monitor.sh, tools/web-load-test.py"
+        sshpass -p "$REMOTE_PASS" scp $SSH_OPTS tools/load-test.py tools/conn-monitor.sh tools/web-load-test.py "$REMOTE_USER@$REMOTE_HOST:/tmp/"
 
         # Update Service & Cleanup
         show_progress "Updating service and restarting traccar..."
         echo "$TRACCAR_SERVICE_CONTENT" > traccar.service.tmp
-        sshpass -p "$REMOTE_PASS" scp -o StrictHostKeyChecking=no traccar.service.tmp "$REMOTE_USER@$REMOTE_HOST:/tmp/traccar.service"
+        sshpass -p "$REMOTE_PASS" scp $SSH_OPTS traccar.service.tmp "$REMOTE_USER@$REMOTE_HOST:/tmp/traccar.service"
         rm traccar.service.tmp
 
-        sshpass -p "$REMOTE_PASS" ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" << 'REMOTE_EOF'
+        sshpass -p "$REMOTE_PASS" ssh $SSH_OPTS "$REMOTE_USER@$REMOTE_HOST" << 'REMOTE_EOF'
             sudo mv /tmp/tracker-server.jar /opt/traccar/
             sudo mv /tmp/lib /opt/traccar/
             sudo rm -rf /opt/traccar/schema
@@ -147,10 +147,10 @@ EOF
                 exit 1
             fi
             sudo chmod -R a+rX /opt/traccar/schema
-            sudo mv /tmp/load-test.py /tmp/conn-monitor.sh /opt/traccar/
-            sudo chmod +x /opt/traccar/conn-monitor.sh
+            sudo mv /tmp/load-test.py /tmp/conn-monitor.sh /tmp/web-load-test.py /opt/traccar/
+            sudo chmod +x /opt/traccar/conn-monitor.sh /opt/traccar/web-load-test.py
             sudo mv /tmp/traccar.service /etc/systemd/system/traccar.service
-            sudo chown -R root:root /opt/traccar/lib /opt/traccar/tracker-server.jar /opt/traccar/schema /opt/traccar/load-test.py /opt/traccar/conn-monitor.sh
+            sudo chown -R root:root /opt/traccar/lib /opt/traccar/tracker-server.jar /opt/traccar/schema /opt/traccar/load-test.py /opt/traccar/conn-monitor.sh /opt/traccar/web-load-test.py
             sudo systemctl daemon-reload
             sudo systemctl restart traccar
 REMOTE_EOF
