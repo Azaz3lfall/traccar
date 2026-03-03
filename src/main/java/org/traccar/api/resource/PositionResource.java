@@ -102,8 +102,8 @@ public class PositionResource extends BaseResource {
 
     /** From zoom 16 onward do not cluster: return each position individually. */
     private static final int NO_CLUSTER_ZOOM_THRESHOLD = 16;
-    /** When zoom is smaller than this, return only clusters (no single points). */
-    private static final int MIN_ZOOM_FOR_SINGLE_POINTS = 13;
+    /** Zoom 5 or lower: only clusters (no single points), so no overlapping; zoom 6+ send single points. */
+    private static final int MAX_ZOOM_CLUSTERS_ONLY = 5;
 
     /** Zoom level from longitude span (narrow bounds => higher zoom => smaller cells). */
     private static int zoomFromLonSpan(double lonSpan) {
@@ -132,15 +132,30 @@ public class PositionResource extends BaseResource {
     private static final double MAX_EPS_METERS = 1000.0;
     /** For zoom &lt;= 13: allow much larger clusters so they are not over-distributed. */
     private static final double BIG_CLUSTER_MAX_EPS_METERS = 15_000.0;
+    /** Zoom ≤5: max eps when using viewport-based one-big-cluster (earth half-meridian ~20M m). */
+    private static final double VERY_LOW_ZOOM_MAX_EPS_METERS = 20_000_000.0;
 
     /**
-     * Max cluster radius from zoom level. Zoom &lt;= 13: big clusters (up to ~15 km). Zoom 14+: tighter (1 km).
+     * Max cluster radius from zoom level. Zoom 6–13: big (~15 km). Zoom 14+: 1 km.
+     * Zoom ≤5: not used; eps is viewport-based for one big cluster.
      */
     private static double maxEpsForZoom(int zoom) {
         if (zoom <= 13) {
-            return BIG_CLUSTER_MAX_EPS_METERS;  // big clusters, less distributed
+            return BIG_CLUSTER_MAX_EPS_METERS;
         }
-        return MAX_EPS_METERS;  // 1 km at high zoom
+        return MAX_EPS_METERS;
+    }
+
+    /**
+     * Viewport shorter span in meters (for viewport-relative eps at low zoom).
+     */
+    private static double viewportSpanMeters(double minLat, double maxLat, double minLon, double maxLon) {
+        double latSpanDeg = Math.max(0.001, maxLat - minLat);
+        double lonSpanDeg = Math.max(0.001, maxLon - minLon);
+        double midLat = (minLat + maxLat) * 0.5;
+        double latMeters = 111_320.0 * latSpanDeg;
+        double lonMeters = 111_320.0 * Math.cos(Math.toRadians(midLat)) * lonSpanDeg;
+        return Math.min(latMeters, lonMeters);
     }
 
     /**
@@ -148,28 +163,27 @@ public class PositionResource extends BaseResource {
      * Uses shorter span of bounds (in meters); target ~15–20 clusters along that axis.
      */
     private static double maxEpsFromBounds(double minLat, double maxLat, double minLon, double maxLon) {
-        double latSpanDeg = Math.max(0.001, maxLat - minLat);
-        double lonSpanDeg = Math.max(0.001, maxLon - minLon);
-        double midLat = (minLat + maxLat) * 0.5;
-        double latMeters = 111_320.0 * latSpanDeg;
-        double lonMeters = 111_320.0 * Math.cos(Math.toRadians(midLat)) * lonSpanDeg;
-        double spanMeters = Math.min(latMeters, lonMeters);
-        double maxEps = spanMeters / 25.0;  // More clusters: was 18
+        double spanMeters = viewportSpanMeters(minLat, maxLat, minLon, maxLon);
+        double maxEps = spanMeters / 25.0;
         return Math.max(MIN_EPS_METERS, Math.min(MAX_EPS_METERS, maxEps));
     }
 
     /** Effective eps: zoom-based value capped by bounds-derived max and zoom-based max (and global min/max).
-     * For zoom &lt;= 13 uses higher cap so clusters can be large (not over-distributed). */
+     * Zoom ≤5: one big cluster – eps = half viewport span (capped at 20M m). Zoom 6+: normal logic. */
     private static double epsMetersForMap(int zoom, double minLat, double maxLat, double minLon, double maxLon) {
+        if (zoom <= MAX_ZOOM_CLUSTERS_ONLY) {
+            double spanMeters = viewportSpanMeters(minLat, maxLat, minLon, maxLon);
+            double eps = spanMeters / 2.0;  // one big cluster (radius = half viewport)
+            return Math.max(MIN_EPS_METERS, Math.min(VERY_LOW_ZOOM_MAX_EPS_METERS, eps));
+        }
         double fromZoom = epsMetersForZoom(zoom);
         double maxFromBounds = maxEpsFromBounds(minLat, maxLat, minLon, maxLon);
         double zoomBasedMax = maxEpsForZoom(zoom);
-        double maxCap = zoom <= 13 ? BIG_CLUSTER_MAX_EPS_METERS : MAX_EPS_METERS;
         if (zoom <= 13) {
-            maxFromBounds = Math.max(maxFromBounds, maxCap);  // allow big clusters, don't over-limit by bounds
+            maxFromBounds = Math.max(maxFromBounds, BIG_CLUSTER_MAX_EPS_METERS);
         }
         double eps = Math.min(Math.min(fromZoom, maxFromBounds), zoomBasedMax);
-        return Math.max(MIN_EPS_METERS, Math.min(maxCap, eps));
+        return Math.max(MIN_EPS_METERS, Math.min(zoomBasedMax, eps));
     }
 
     /** Expand bounds by factor on each side (e.g. 0.5 = 50% each side). Lat clamped to [-90,90], lon to [-180,180]. */
@@ -227,7 +241,7 @@ public class PositionResource extends BaseResource {
             }
             LOGGER.info("API /positions map-view: userId={} bounds=[{},{},{},{}] zoom={} -> {} cells from DB",
                     userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(), effectiveZoom, cells.size());
-            boolean includeSinglePoints = effectiveZoom >= MIN_ZOOM_FOR_SINGLE_POINTS;
+            boolean includeSinglePoints = effectiveZoom > MAX_ZOOM_CLUSTERS_ONLY;
             PositionsMapResponse mapResponse = mapCellsToResponse(cells, includeSinglePoints);
             return Response.ok(mapResponse).build();
         }
@@ -320,12 +334,12 @@ public class PositionResource extends BaseResource {
     }
 
     /** Converts DB cluster rows (one per cell) to positions list + clusters list. No grouping in memory.
-     * Count==1 is always a single position; count&gt;1 is always a cluster (never show a "cluster" of one point). */
+     * When includeSinglePoints: count==1 → position, count&gt;1 → cluster. When false (zoom ≤5): all as clusters. */
     private static PositionsMapResponse mapCellsToResponse(List<MapCellRow> cells, boolean includeSinglePoints) {
         var positions = new ArrayList<PositionMapItem>();
         var clusters = new ArrayList<PositionCluster>();
         for (var row : cells) {
-            if (row.getCount() == 1) {
+            if (includeSinglePoints && row.getCount() == 1) {
                 PositionMapItem item = new PositionMapItem();
                 item.setId(row.getId());
                 item.setDeviceId(row.getDeviceId());
@@ -396,7 +410,7 @@ public class PositionResource extends BaseResource {
                 cells = storage.getMapCellsInBounds(userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(), cellDeg);
             }
         }
-        boolean includeSinglePoints = zoom >= MIN_ZOOM_FOR_SINGLE_POINTS;
+        boolean includeSinglePoints = zoom > MAX_ZOOM_CLUSTERS_ONLY;
         PositionsMapResponse plot = mapCellsToResponse(cells, includeSinglePoints);
         MapInitialResponse response = new MapInitialResponse();
         response.setMinLat(expanded.minLat());
