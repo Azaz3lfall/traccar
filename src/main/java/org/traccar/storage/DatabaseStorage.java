@@ -69,6 +69,11 @@ public class DatabaseStorage extends Storage {
         }
     }
 
+    /** Time window for map/position queries (e.g. "24 hours", "2 days"). Uses position.turbo from config. */
+    private String getPositionTurboWindow() {
+        return config.getString("position.turbo", "24 hours");
+    }
+
     @Override
     public <T> List<T> getObjects(Class<T> clazz, Request request) throws StorageException {
         try (var objects = getObjectsStream(clazz, request)) {
@@ -236,6 +241,7 @@ public class DatabaseStorage extends Storage {
                     + "FROM ("
                     + "  SELECT DISTINCT ON (deviceid) * FROM " + posTable
                     + "  WHERE latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?"
+                    + "  AND fixtime > NOW() - (?::interval)"
                     + "  AND deviceid IN (" + permittedDevices + ")"
                     + "  ORDER BY deviceid, fixtime DESC"
                     + ") p "
@@ -245,8 +251,9 @@ public class DatabaseStorage extends Storage {
             builder.setDouble(1, maxLat);
             builder.setDouble(2, minLon);
             builder.setDouble(3, maxLon);
-            builder.setLong(4, userId);
+            builder.setString(4, getPositionTurboWindow());
             builder.setLong(5, userId);
+            builder.setLong(6, userId);
             try (var stream = builder.executeQueryStreamed(PositionWithDevice.class)) {
                 var list = stream.toList();
                 LOGGER.debug("getPositionsInBoundsWithDevice: user {} -> {} positions in bounds", userId, list.size());
@@ -273,6 +280,7 @@ public class DatabaseStorage extends Storage {
                     + "FROM ("
                     + "  SELECT DISTINCT ON (deviceid) id, deviceid, latitude, longitude, course FROM " + posTable
                     + "  WHERE latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?"
+                    + "  AND fixtime > NOW() - (?::interval)"
                     + "  AND deviceid IN (" + permittedDevices + ")"
                     + "  ORDER BY deviceid, fixtime DESC"
                     + ") p "
@@ -282,8 +290,9 @@ public class DatabaseStorage extends Storage {
             builder.setDouble(1, maxLat);
             builder.setDouble(2, minLon);
             builder.setDouble(3, maxLon);
-            builder.setLong(4, userId);
+            builder.setString(4, getPositionTurboWindow());
             builder.setLong(5, userId);
+            builder.setLong(6, userId);
             try (var stream = builder.executeQueryStreamed(PositionMapItem.class)) {
                 var list = stream.toList();
                 LOGGER.debug("getPositionsInBoundsForMapView: user {} -> {} positions in bounds", userId, list.size());
@@ -311,6 +320,7 @@ public class DatabaseStorage extends Storage {
                     + "  FROM ("
                     + "    SELECT DISTINCT ON (deviceid) id, deviceid, latitude, longitude, course FROM " + posTable
                     + "    WHERE latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?"
+                    + "    AND fixtime > NOW() - (?::interval)"
                     + "    AND deviceid IN (" + permittedDevices + ")"
                     + "    ORDER BY deviceid, fixtime DESC"
                     + "  ) p INNER JOIN " + devTable + " d ON d.id = p.deviceid"
@@ -326,10 +336,11 @@ public class DatabaseStorage extends Storage {
             builder.setDouble(1, maxLat);
             builder.setDouble(2, minLon);
             builder.setDouble(3, maxLon);
-            builder.setLong(4, userId);
+            builder.setString(4, getPositionTurboWindow());
             builder.setLong(5, userId);
-            builder.setDouble(6, cellDeg);
+            builder.setLong(6, userId);
             builder.setDouble(7, cellDeg);
+            builder.setDouble(8, cellDeg);
             try (var stream = builder.executeQueryStreamed(MapCellRow.class)) {
                 var list = stream.toList();
                 LOGGER.debug("getMapCellsInBounds: user {} -> {} cells from DB", userId, list.size());
@@ -383,6 +394,7 @@ public class DatabaseStorage extends Storage {
                     + "  FROM ("
                     + "    SELECT DISTINCT ON (deviceid) id, deviceid, latitude, longitude, course FROM " + posTable
                     + "    WHERE latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?"
+                    + "    AND fixtime > NOW() - (?::interval)"
                     + "    AND deviceid IN (" + permittedDevices + ")"
                     + "    ORDER BY deviceid, fixtime DESC"
                     + "  ) p INNER JOIN " + devTable + " d ON d.id = p.deviceid"
@@ -404,9 +416,10 @@ public class DatabaseStorage extends Storage {
             builder.setDouble(1, maxLat);
             builder.setDouble(2, minLon);
             builder.setDouble(3, maxLon);
-            builder.setLong(4, userId);
+            builder.setString(4, getPositionTurboWindow());
             builder.setLong(5, userId);
-            builder.setDouble(6, epsDegrees);
+            builder.setLong(6, userId);
+            builder.setDouble(7, epsDegrees);
             try (var stream = builder.executeQueryStreamed(MapCellRow.class)) {
                 var list = stream.toList();
                 LOGGER.debug("getMapCellsInBoundsDistance: user {} -> {} clusters from DB", userId, list.size());
@@ -440,7 +453,8 @@ public class DatabaseStorage extends Storage {
                     + "  SELECT p.id, p.deviceid, p.latitude, p.longitude, p.course, d.name AS name, COALESCE(d.status, 'offline') AS status, d.category AS category "
                     + "  FROM ("
                     + "    SELECT DISTINCT ON (deviceid) id, deviceid, latitude, longitude, course FROM " + posTable
-                    + "    WHERE deviceid IN (" + permittedDevices + ")"
+                    + "    WHERE fixtime > NOW() - (?::interval)"
+                    + "    AND deviceid IN (" + permittedDevices + ")"
                     + "    ORDER BY deviceid, fixtime DESC"
                     + "  ) p INNER JOIN " + devTable + " d ON d.id = p.deviceid"
                     + "),"
@@ -457,9 +471,10 @@ public class DatabaseStorage extends Storage {
                     + " MIN(id) AS id, MIN(deviceid) AS deviceid, MIN(course) AS course, MIN(name) AS name, MIN(status) AS status, MIN(category) AS category"
                     + " FROM with_cluster GROUP BY cluster_id";
             var builder = QueryBuilder.create(config, dataSource, objectMapper, sql);
-            builder.setLong(0, userId);
+            builder.setString(0, getPositionTurboWindow());
             builder.setLong(1, userId);
-            builder.setDouble(2, epsDegrees);
+            builder.setLong(2, userId);
+            builder.setDouble(3, epsDegrees);
             try (var stream = builder.executeQueryStreamed(MapCellRow.class)) {
                 return stream.toList();
             }
@@ -764,12 +779,14 @@ public class DatabaseStorage extends Storage {
                     + "MIN(longitude) AS \"minLon\", MAX(longitude) AS \"maxLon\", COUNT(*) AS \"deviceCount\" "
                     + "FROM ("
                     + "  SELECT DISTINCT ON (deviceid) latitude, longitude FROM " + posTable
-                    + "  WHERE deviceid IN (" + permittedDevices + ")"
+                    + "  WHERE fixtime > NOW() - (?::interval)"
+                    + "  AND deviceid IN (" + permittedDevices + ")"
                     + "  ORDER BY deviceid, fixtime DESC"
                     + ") sub";
             var builder = QueryBuilder.create(config, dataSource, objectMapper, sql);
-            builder.setLong(0, userId);
+            builder.setString(0, getPositionTurboWindow());
             builder.setLong(1, userId);
+            builder.setLong(2, userId);
             try (var stream = builder.executeQueryStreamed(MapBoundsRow.class)) {
                 MapBoundsRow row = stream.findFirst().orElse(null);
                 if (row != null) {
