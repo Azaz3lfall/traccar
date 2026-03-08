@@ -19,9 +19,6 @@ public class Page<T> {
     /** Total devices with status unknown (devices list only). Always included in JSON. */
     @JsonInclude(JsonInclude.Include.ALWAYS)
     private Long totalUnknown;
-    /** When true, client may use WebSocket for real-time updates; when false, must use polling. Based on total devices. */
-    @JsonInclude(JsonInclude.Include.ALWAYS)
-    private Boolean websocketAllowed;
 
     public Page(Collection<T> content, long totalElements, int offset, int limit) {
         this.content = content;
@@ -84,14 +81,6 @@ public class Page<T> {
 
     public void setTotalUnknown(Long totalUnknown) {
         this.totalUnknown = totalUnknown;
-    }
-
-    public Boolean getWebsocketAllowed() {
-        return websocketAllowed;
-    }
-
-    public void setWebsocketAllowed(Boolean websocketAllowed) {
-        this.websocketAllowed = websocketAllowed;
     }
 
 }

@@ -100,13 +100,6 @@ public class DeviceResource extends BaseObjectResource<Device> {
         super(Device.class);
     }
 
-    /** Effective WebSocket max devices: user attribute "realtime.websocketMaxDevices" if set, else config. */
-    private int getWebsocketMaxDevicesForCurrentUser() throws StorageException {
-        User user = storage.getObject(User.class, new Request(new Columns.All(), new Condition.Equals("id", getUserId())));
-        String maxKey = Keys.REALTIME_WEBSOCKET_MAX_DEVICES.getKey();
-        return (user != null && user.hasAttribute(maxKey)) ? user.getInteger(maxKey) : config.getInteger(Keys.REALTIME_WEBSOCKET_MAX_DEVICES);
-    }
-
     private Stream<Device> getFilteredStream(
             Columns columns, List<Condition> conditions, String search) throws StorageException {
         Stream<Device> stream = storage.getObjectsStream(baseClass, new Request(
@@ -257,7 +250,6 @@ public class DeviceResource extends BaseObjectResource<Device> {
                             page.setTotalUnknown(tot - on - off);
                         }
                     }
-                    page.setWebsocketAllowed(totalElements <= getWebsocketMaxDevicesForCurrentUser());
                     return Response.ok(page).build();
                 } else {
                     return Response.ok(content).build();
@@ -302,7 +294,6 @@ public class DeviceResource extends BaseObjectResource<Device> {
                     page.setTotalOnline(online);
                     page.setTotalOffline(offline);
                     page.setTotalUnknown(totalElements - online - offline);
-                    page.setWebsocketAllowed(totalElements <= getWebsocketMaxDevicesForCurrentUser());
                     return Response.ok(page).build();
                 } else {
                     return Response.ok(getFilteredStream(columns, conditions, search)).build();

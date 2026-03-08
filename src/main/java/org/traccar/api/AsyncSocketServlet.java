@@ -23,11 +23,9 @@ import org.traccar.config.Config;
 import org.traccar.config.Keys;
 import org.traccar.helper.SessionHelper;
 import org.traccar.session.ConnectionManager;
-import org.traccar.model.User;
 import org.traccar.storage.Storage;
 import org.traccar.storage.StorageException;
 import org.traccar.storage.query.Columns;
-import org.traccar.storage.query.Condition;
 import org.traccar.storage.query.Request;
 
 import jakarta.inject.Inject;
@@ -38,7 +36,6 @@ import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.time.Duration;
 import java.util.List;
-import java.util.stream.Stream;
 
 @Singleton
 public class AsyncSocketServlet extends JettyWebSocketServlet {
@@ -80,17 +77,6 @@ public class AsyncSocketServlet extends JettyWebSocketServlet {
             }
             if (userId != null) {
                 try {
-                    User user = storage.getObject(User.class, new Request(new Columns.All(), new Condition.Equals("id", userId)));
-                    String maxKey = Keys.REALTIME_WEBSOCKET_MAX_DEVICES.getKey();
-                    int maxDevices = (user != null && user.hasAttribute(maxKey)) ? user.getInteger(maxKey) : config.getInteger(Keys.REALTIME_WEBSOCKET_MAX_DEVICES);
-                    long deviceCount;
-                    try (Stream<org.traccar.model.Device> stream = storage.getDevicesWithFilters(
-                            userId, new Columns.All(), false, null, null, null, null, null, null, false, 0, 0)) {
-                        deviceCount = stream.count();
-                    }
-                    if (deviceCount > maxDevices) {
-                        return null;
-                    }
                     org.traccar.model.Server server = storage.getObject(
                             org.traccar.model.Server.class, new Request(new Columns.All()));
                     String turbo = server.getString("position.turbo", "24 hours");
