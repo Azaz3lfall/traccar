@@ -824,6 +824,15 @@ public final class Keys {
             300000L);
 
     /**
+     * Max device count for which WebSocket real-time updates are allowed. Above this, clients must use polling.
+     * Based on total devices from the device list (paginated) for the user. Default 5000.
+     */
+    public static final ConfigKey<Integer> REALTIME_WEBSOCKET_MAX_DEVICES = new IntegerConfigKey(
+            "realtime.websocketMaxDevices",
+            List.of(KeyType.CONFIG),
+            5000);
+
+    /**
      * Authentication sessions timeout in seconds. By default no timeout.
      */
     public static final ConfigKey<Integer> WEB_SESSION_TIMEOUT = new IntegerConfigKey(
