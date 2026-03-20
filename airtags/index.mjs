@@ -109,20 +109,15 @@ const forwardToTraccar = async (locationList) => {
     for (const loc of locationList) {
         if (!loc.lat || !loc.lng || !loc.timestamp) continue;
 
-        // Battery mapping: 0=10%, 1=30%, 2=60%, 3=100%
-        let batt = 0;
-        if (loc.battery === 0) batt = 10;
-        else if (loc.battery === 1) batt = 30;
-        else if (loc.battery === 2) batt = 60;
-        else if (loc.battery === 3) batt = 100;
-        else if (loc.battery === -1) batt = 0; // invalid
-
+        // Format OsmAnd GET request as requested
         const query = new URLSearchParams({
             id: loc.id.toString(),
             lat: loc.lat.toString(),
             lon: loc.lng.toString(),
-            timestamp: loc.timestamp.toString(),
-            batt: batt.toString()
+            timestamp: (loc.timestamp * 1000).toString(), // ms
+            battery: loc.battery.toString(),
+            mac: loc.mac || '',
+            isActived: loc.isActived ? 'true' : 'false'
         });
 
         const traccarPath = (url.pathname !== '/' ? url.pathname : "") + `/?${query.toString()}`;
@@ -147,7 +142,7 @@ const runJob = async () => {
 
         if (devices.length === 0) return;
 
-        const batchSize = 10;
+        const batchSize = 1; // updated to one airtag per request
         let totalForwarded = 0;
 
         for (let i = 0; i < devices.length; i += batchSize) {
