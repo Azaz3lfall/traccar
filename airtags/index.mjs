@@ -99,11 +99,6 @@ const fetchLocationsForBatch = async (batch) => {
 };
 
 const forwardToTraccar = async (locationList) => {
-    const url = new URL(TRACCAR_OSMAND_URL);
-    const hostname = url.hostname;
-    const port = url.port || (url.protocol === 'https:' ? 443 : 80);
-    const isHttps = url.protocol === 'https:';
-
     let sentCount = 0;
 
     for (const loc of locationList) {
@@ -120,14 +115,22 @@ const forwardToTraccar = async (locationList) => {
             isActived: loc.isActived ? 'true' : 'false'
         });
 
-        const traccarPath = (url.pathname !== '/' ? url.pathname : "") + `/?${query.toString()}`;
+        const baseUrl = TRACCAR_OSMAND_URL.replace(/\/$/, '');
+        const urlToFetch = `${baseUrl}/?${query.toString()}`;
 
-        const res = await makeRequest(hostname, port, traccarPath, 'GET', {}, isHttps);
-        if (res.status === 200) {
-            console.log(`Traccar OK for ID ${loc.id}:`, res.data || 'No Content');
-            sentCount++;
-        } else {
-            console.error(`Failed to send to Traccar for ${loc.id} (Status: ${res.status}):`, res.err || res.data);
+        try {
+            const res = await fetch(urlToFetch, { method: 'GET' });
+
+            if (res.ok) {
+                const text = await res.text();
+                console.log(`Traccar OK for ID ${loc.id}:`, text || 'No Content');
+                sentCount++;
+            } else {
+                const text = await res.text();
+                console.error(`Failed to send to Traccar for ${loc.id} (Status: ${res.status}):`, text);
+            }
+        } catch (err) {
+            console.error(`Fetch error forwarding ${loc.id} to Traccar:`, err.message);
         }
     }
 
