@@ -68,6 +68,7 @@ const fetchDevices = async () => {
     const res = await makeRequest('tags.traqcare.com', 443, '/api/tag/all', 'GET', headers, true);
 
     if (res.status === 200 && res.data && res.data.data) {
+        console.log(`Device List:`, JSON.stringify(res.data.data));
         return res.data.data;
     } else {
         console.error("Failed to fetch devices:", res);
@@ -89,6 +90,7 @@ const fetchLocationsForBatch = async (batch) => {
     const res = await makeRequest('tags.traqcare.com', 443, apiPath, 'GET', headers, true);
 
     if (res.status === 200 && res.data && Array.isArray(res.data.data)) {
+        console.log(`Locations response for batch [${ids}]:`, JSON.stringify(res.data.data, null, 2));
         return res.data.data;
     } else {
         console.error(`Failed to fetch locations for batch (Status: ${res.status}):`, res.data);
@@ -127,6 +129,7 @@ const forwardToTraccar = async (locationList) => {
 
         const res = await makeRequest(hostname, port, traccarPath, 'GET', {}, isHttps);
         if (res.status === 200) {
+            console.log(`Traccar OK for ID ${loc.id}:`, res.data || 'No Content');
             sentCount++;
         } else {
             console.error(`Failed to send to Traccar for ${loc.id} (Status: ${res.status}):`, res.err || res.data);
