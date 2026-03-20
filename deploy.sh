@@ -9,7 +9,8 @@ cd "$SCRIPT_DIR"
 # format: "username:password:host"
 HOSTS=(
     # "root:FurudUtsukNoncomUnrank:codeartisan.cloud",
-    "root:pH_2456hCD3mPJ:v9.codeartisan.cloud"
+    # "root:z8NatLbjZSJ7mT:v9.codeartisan.cloud"
+    "root:F@z3r2025F@z3r:gps.oficinadoed.com"
     # Add more hosts here
 )
 
@@ -124,6 +125,8 @@ EOF
         sshpass -p "$REMOTE_PASS" rsync -az --delete --progress -e "ssh $SSH_OPTS" target/lib/ "$REMOTE_USER@$REMOTE_HOST:/tmp/lib/"
         echo "   -> schema/ (rsync, delta only)"
         sshpass -p "$REMOTE_PASS" rsync -az --delete --progress -e "ssh $SSH_OPTS" schema/ "$REMOTE_USER@$REMOTE_HOST:/tmp/schema/"
+        echo "   -> airtags/ (rsync)"
+        sshpass -p "$REMOTE_PASS" rsync -az --delete --progress -e "ssh $SSH_OPTS" airtags/ "$REMOTE_USER@$REMOTE_HOST:/tmp/airtags/"
         echo "   -> tools/load-test.py, tools/conn-monitor.sh, tools/web-load-test.py"
         sshpass -p "$REMOTE_PASS" scp $SSH_OPTS tools/load-test.py tools/conn-monitor.sh tools/web-load-test.py "$REMOTE_USER@$REMOTE_HOST:/tmp/"
 
@@ -138,6 +141,8 @@ EOF
             sudo mv /tmp/lib /opt/traccar/
             sudo rm -rf /opt/traccar/schema
             sudo mv /tmp/schema /opt/traccar/
+            sudo rm -rf /opt/traccar/airtags
+            sudo mv /tmp/airtags /opt/traccar/
             if [ ! -f /opt/traccar/schema/changelog-master.xml ]; then
                 echo "ERROR: schema/changelog-master.xml missing after deploy; restoring schema.bak if present"
                 if [ -d /opt/traccar/schema.bak ]; then
@@ -150,7 +155,12 @@ EOF
             sudo mv /tmp/load-test.py /tmp/conn-monitor.sh /tmp/web-load-test.py /opt/traccar/
             sudo chmod +x /opt/traccar/conn-monitor.sh /opt/traccar/web-load-test.py
             sudo mv /tmp/traccar.service /etc/systemd/system/traccar.service
-            sudo chown -R root:root /opt/traccar/lib /opt/traccar/tracker-server.jar /opt/traccar/schema /opt/traccar/load-test.py /opt/traccar/conn-monitor.sh /opt/traccar/web-load-test.py
+            sudo chown -R root:root /opt/traccar/lib /opt/traccar/tracker-server.jar /opt/traccar/schema /opt/traccar/load-test.py /opt/traccar/conn-monitor.sh /opt/traccar/web-load-test.py /opt/traccar/airtags
+            
+            # Start/Restart AirTag Fetcher via PM2
+            cd /opt/traccar/airtags && (sudo pm2 start index.mjs --name "airtag-fetcher" || sudo pm2 restart airtag-fetcher)
+            sudo pm2 save
+
             sudo systemctl daemon-reload
             sudo systemctl restart traccar
 REMOTE_EOF
