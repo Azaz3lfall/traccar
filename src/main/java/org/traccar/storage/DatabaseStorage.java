@@ -233,27 +233,21 @@ public class DatabaseStorage extends Storage {
             return List.of();
         }
         try {
-            // Single query: bounds filter + permission subquery (no 12k params). Same permission as web.
             String posTable = getStorageName(Position.class);
             String devTable = getStorageName(Device.class);
             String permittedDevices = buildPermittedDeviceIdsSubquery();
             String sql = "SELECT p.*, d.name AS name, COALESCE(d.status, 'offline') AS status "
-                    + "FROM ("
-                    + "  SELECT DISTINCT ON (deviceid) * FROM " + posTable
-                    + "  WHERE latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?"
-                    + "  AND fixtime > NOW() - (?::interval)"
-                    + "  AND deviceid IN (" + permittedDevices + ")"
-                    + "  ORDER BY deviceid, fixtime DESC"
-                    + ") p "
-                    + "INNER JOIN " + devTable + " d ON d.id = p.deviceid";
+                    + "FROM " + devTable + " d "
+                    + "INNER JOIN " + posTable + " p ON d.positionid = p.id "
+                    + "WHERE p.latitude BETWEEN ? AND ? AND p.longitude BETWEEN ? AND ?"
+                    + "  AND d.id IN (" + permittedDevices + ")";
             var builder = QueryBuilder.create(config, dataSource, objectMapper, sql);
             builder.setDouble(0, minLat);
             builder.setDouble(1, maxLat);
             builder.setDouble(2, minLon);
             builder.setDouble(3, maxLon);
-            builder.setString(4, getPositionTurboWindow());
+            builder.setLong(4, userId);
             builder.setLong(5, userId);
-            builder.setLong(6, userId);
             try (var stream = builder.executeQueryStreamed(PositionWithDevice.class)) {
                 var list = stream.toList();
                 LOGGER.debug("getPositionsInBoundsWithDevice: user {} -> {} positions in bounds", userId, list.size());
@@ -277,22 +271,17 @@ public class DatabaseStorage extends Storage {
             String devTable = getStorageName(Device.class);
             String permittedDevices = buildPermittedDeviceIdsSubquery();
             String sql = "SELECT p.id, p.deviceid, p.latitude, p.longitude, p.course, d.name AS name, COALESCE(d.status, 'offline') AS status, d.category AS category "
-                    + "FROM ("
-                    + "  SELECT DISTINCT ON (deviceid) id, deviceid, latitude, longitude, course FROM " + posTable
-                    + "  WHERE latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?"
-                    + "  AND fixtime > NOW() - (?::interval)"
-                    + "  AND deviceid IN (" + permittedDevices + ")"
-                    + "  ORDER BY deviceid, fixtime DESC"
-                    + ") p "
-                    + "INNER JOIN " + devTable + " d ON d.id = p.deviceid";
+                    + "FROM " + devTable + " d "
+                    + "INNER JOIN " + posTable + " p ON d.positionid = p.id "
+                    + "WHERE p.latitude BETWEEN ? AND ? AND p.longitude BETWEEN ? AND ?"
+                    + "  AND d.id IN (" + permittedDevices + ")";
             var builder = QueryBuilder.create(config, dataSource, objectMapper, sql);
             builder.setDouble(0, minLat);
             builder.setDouble(1, maxLat);
             builder.setDouble(2, minLon);
             builder.setDouble(3, maxLon);
-            builder.setString(4, getPositionTurboWindow());
+            builder.setLong(4, userId);
             builder.setLong(5, userId);
-            builder.setLong(6, userId);
             try (var stream = builder.executeQueryStreamed(PositionMapItem.class)) {
                 var list = stream.toList();
                 LOGGER.debug("getPositionsInBoundsForMapView: user {} -> {} positions in bounds", userId, list.size());
@@ -317,13 +306,10 @@ public class DatabaseStorage extends Storage {
             String permittedDevices = buildPermittedDeviceIdsSubquery();
             String sql = "WITH latest AS ("
                     + "  SELECT p.id, p.deviceid, p.latitude, p.longitude, p.course, d.name AS name, COALESCE(d.status, 'offline') AS status, d.category AS category "
-                    + "  FROM ("
-                    + "    SELECT DISTINCT ON (deviceid) id, deviceid, latitude, longitude, course FROM " + posTable
-                    + "    WHERE latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?"
-                    + "    AND fixtime > NOW() - (?::interval)"
-                    + "    AND deviceid IN (" + permittedDevices + ")"
-                    + "    ORDER BY deviceid, fixtime DESC"
-                    + "  ) p INNER JOIN " + devTable + " d ON d.id = p.deviceid"
+                    + "  FROM " + devTable + " d "
+                    + "  INNER JOIN " + posTable + " p ON d.positionid = p.id "
+                    + "  WHERE p.latitude BETWEEN ? AND ? AND p.longitude BETWEEN ? AND ?"
+                    + "    AND d.id IN (" + permittedDevices + ")"
                     + "),"
                     + " with_cell AS ("
                     + "  SELECT *, FLOOR(longitude / ?)::bigint AS cell_x, FLOOR(latitude / ?)::bigint AS cell_y FROM latest"
@@ -336,11 +322,10 @@ public class DatabaseStorage extends Storage {
             builder.setDouble(1, maxLat);
             builder.setDouble(2, minLon);
             builder.setDouble(3, maxLon);
-            builder.setString(4, getPositionTurboWindow());
+            builder.setLong(4, userId);
             builder.setLong(5, userId);
-            builder.setLong(6, userId);
+            builder.setDouble(6, cellDeg);
             builder.setDouble(7, cellDeg);
-            builder.setDouble(8, cellDeg);
             try (var stream = builder.executeQueryStreamed(MapCellRow.class)) {
                 var list = stream.toList();
                 LOGGER.debug("getMapCellsInBounds: user {} -> {} cells from DB", userId, list.size());
@@ -391,13 +376,10 @@ public class DatabaseStorage extends Storage {
             double epsDegrees = epsMeters / METERS_PER_DEGREE;
             String sql = "WITH latest AS ("
                     + "  SELECT p.id, p.deviceid, p.latitude, p.longitude, p.course, d.name AS name, COALESCE(d.status, 'offline') AS status, d.category AS category "
-                    + "  FROM ("
-                    + "    SELECT DISTINCT ON (deviceid) id, deviceid, latitude, longitude, course FROM " + posTable
-                    + "    WHERE latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?"
-                    + "    AND fixtime > NOW() - (?::interval)"
-                    + "    AND deviceid IN (" + permittedDevices + ")"
-                    + "    ORDER BY deviceid, fixtime DESC"
-                    + "  ) p INNER JOIN " + devTable + " d ON d.id = p.deviceid"
+                    + "  FROM " + devTable + " d "
+                    + "  INNER JOIN " + posTable + " p ON d.positionid = p.id "
+                    + "  WHERE p.latitude BETWEEN ? AND ? AND p.longitude BETWEEN ? AND ?"
+                    + "    AND d.id IN (" + permittedDevices + ")"
                     + "),"
                     + " with_geom AS ("
                     + "  SELECT *, ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geometry AS geom FROM latest"
@@ -416,10 +398,9 @@ public class DatabaseStorage extends Storage {
             builder.setDouble(1, maxLat);
             builder.setDouble(2, minLon);
             builder.setDouble(3, maxLon);
-            builder.setString(4, getPositionTurboWindow());
+            builder.setLong(4, userId);
             builder.setLong(5, userId);
-            builder.setLong(6, userId);
-            builder.setDouble(7, epsDegrees);
+            builder.setDouble(6, epsDegrees);
             try (var stream = builder.executeQueryStreamed(MapCellRow.class)) {
                 var list = stream.toList();
                 LOGGER.debug("getMapCellsInBoundsDistance: user {} -> {} clusters from DB", userId, list.size());
@@ -451,12 +432,9 @@ public class DatabaseStorage extends Storage {
             double epsDegrees = epsMeters / METERS_PER_DEGREE;
             String sql = "WITH latest AS ("
                     + "  SELECT p.id, p.deviceid, p.latitude, p.longitude, p.course, d.name AS name, COALESCE(d.status, 'offline') AS status, d.category AS category "
-                    + "  FROM ("
-                    + "    SELECT DISTINCT ON (deviceid) id, deviceid, latitude, longitude, course FROM " + posTable
-                    + "    WHERE fixtime > NOW() - (?::interval)"
-                    + "    AND deviceid IN (" + permittedDevices + ")"
-                    + "    ORDER BY deviceid, fixtime DESC"
-                    + "  ) p INNER JOIN " + devTable + " d ON d.id = p.deviceid"
+                    + "  FROM " + devTable + " d "
+                    + "  INNER JOIN " + posTable + " p ON d.positionid = p.id "
+                    + "  WHERE d.id IN (" + permittedDevices + ")"
                     + "),"
                     + " with_geom AS ("
                     + "  SELECT *, ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geometry AS geom FROM latest"
@@ -471,10 +449,9 @@ public class DatabaseStorage extends Storage {
                     + " MIN(id) AS id, MIN(deviceid) AS deviceid, MIN(course) AS course, MIN(name) AS name, MIN(status) AS status, MIN(category) AS category"
                     + " FROM with_cluster GROUP BY cluster_id";
             var builder = QueryBuilder.create(config, dataSource, objectMapper, sql);
-            builder.setString(0, getPositionTurboWindow());
+            builder.setLong(0, userId);
             builder.setLong(1, userId);
-            builder.setLong(2, userId);
-            builder.setDouble(3, epsDegrees);
+            builder.setDouble(2, epsDegrees);
             try (var stream = builder.executeQueryStreamed(MapCellRow.class)) {
                 return stream.toList();
             }
@@ -774,19 +751,16 @@ public class DatabaseStorage extends Storage {
         }
         try {
             String posTable = getStorageName(Position.class);
+            String devTable = getStorageName(Device.class);
             String permittedDevices = buildPermittedDeviceIdsSubquery();
-            String sql = "SELECT MIN(latitude) AS \"minLat\", MAX(latitude) AS \"maxLat\", "
-                    + "MIN(longitude) AS \"minLon\", MAX(longitude) AS \"maxLon\", COUNT(*) AS \"deviceCount\" "
-                    + "FROM ("
-                    + "  SELECT DISTINCT ON (deviceid) latitude, longitude FROM " + posTable
-                    + "  WHERE fixtime > NOW() - (?::interval)"
-                    + "  AND deviceid IN (" + permittedDevices + ")"
-                    + "  ORDER BY deviceid, fixtime DESC"
-                    + ") sub";
+            String sql = "SELECT MIN(p.latitude) AS \"minLat\", MAX(p.latitude) AS \"maxLat\", "
+                    + "MIN(p.longitude) AS \"minLon\", MAX(p.longitude) AS \"maxLon\", COUNT(*) AS \"deviceCount\" "
+                    + "FROM " + devTable + " d "
+                    + "INNER JOIN " + posTable + " p ON d.positionid = p.id "
+                    + "WHERE d.id IN (" + permittedDevices + ")";
             var builder = QueryBuilder.create(config, dataSource, objectMapper, sql);
-            builder.setString(0, getPositionTurboWindow());
+            builder.setLong(0, userId);
             builder.setLong(1, userId);
-            builder.setLong(2, userId);
             try (var stream = builder.executeQueryStreamed(MapBoundsRow.class)) {
                 MapBoundsRow row = stream.findFirst().orElse(null);
                 if (row != null) {

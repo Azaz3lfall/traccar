@@ -9,8 +9,9 @@ cd "$SCRIPT_DIR"
 # format: "username:password:host"
 HOSTS=(
     # "root:FurudUtsukNoncomUnrank:codeartisan.cloud",
-    # "root:z8NatLbjZSJ7mT:v9.codeartisan.cloud"
-    "root:F@z3r2025F@z3r:gps.oficinadoed.com"
+    "root:z8NatLbjZSJ7mT:v9.codeartisan.cloud"
+    # "root:F@z3r2025F@z3r:gps.oficinadoed.com"
+    # "root:Andres4420:207.180.192.102"
     # Add more hosts here
 )
 
@@ -27,8 +28,6 @@ After=network.target
 Type=simple
 WorkingDirectory=/opt/traccar
 ExecStart=/opt/traccar/jre/bin/java \
-  -Xms8g \
-  -Xmx12g \
   -XX:+UseG1GC \
   -XX:MaxGCPauseMillis=200 \
   -XX:+AlwaysPreTouch \
