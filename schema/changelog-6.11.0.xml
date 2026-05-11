@@ -47,6 +47,12 @@
 
   <changeSet author="author" id="changelog-6.11.0">
 
+    <preConditions onFail="MARK_RAN">
+      <not>
+        <tableExists tableName="tc_revoked_tokens" />
+      </not>
+    </preConditions>
+
     <createTable tableName="tc_revoked_tokens">
       <column name="id" type="BIGINT">
         <constraints primaryKey="true" nullable="false" />
