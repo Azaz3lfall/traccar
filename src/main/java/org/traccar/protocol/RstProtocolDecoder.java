@@ -43,23 +43,37 @@ public class RstProtocolDecoder extends BaseProtocolDecoder {
             .number("(d{9});")                   // serial number
             .number("(d+);")                     // index
             .number("(d+);")                     // type
-            .expression("(.*)")                  // content
-            .text("FIM;")
+            .groupBegin()
+            .number("(dd)-(dd)-(dddd) ")         // event date
+            .number("(dd):(dd):(dd);")           // event time
+            .number("(dd)-(dd)-(dddd) ")         // fix date
+            .number("(dd):(dd):(dd);")           // fix time
+            .number("(-?d+.d+);")                // latitude
+            .number("(-?d+.d+);")                // longitude
+            .number("(d+);")                     // speed
+            .number("(d+);")                     // course
+            .number("(-?d+);")                   // altitude
+            .number("([01]);")                   // valid
+            .number("(d+);")                     // satellites
+            .number("(d+);")                     // hdop
+            .number("(xx);")                     // inputs 1
+            .number("(xx);")                     // inputs 2
+            .number("(xx);")                     // inputs 3
+            .number("(xx);")                     // outputs 1
+            .number("(xx);")                     // outputs 2
+            .number("(d+.d+);")                  // power
+            .number("(d+.d+);")                  // battery
+            .number("(d+);")                     // odometer
+            .number("(d+);")                     // rssi
+            .number("(xx);")                     // temperature
+            .number("x{4};")                     // sensors
+            .number("(xx);")                     // status 1
+            .number("(xx);")                     // status 2
+            .expression("(.*)")                  // additional data
+            .groupEnd("?")
             .any()
+            .text("FIM;")
             .compile();
-
-    private void decodeAdicional2(Position position, String maskHex, String[] values, int[] index) {
-        try {
-            long mask = Long.parseLong(maskHex, 16);
-            if (BitUtil.check(mask, 30)) {
-                position.set("rpmMax", values[index[0]++]);
-                position.set("rpmMin", values[index[0]++]);
-                position.set("rpmAvg", values[index[0]++]);
-            }
-        } catch (Exception e) {
-            // ignore
-        }
-    }
 
     @Override
     protected Object decode(
@@ -70,13 +84,12 @@ public class RstProtocolDecoder extends BaseProtocolDecoder {
             return null;
         }
 
-        String archive = parser.next();
+        parser.next(); // archive
         String model = parser.next();
         String firmware = parser.next();
         String serial = parser.next();
         int index = parser.nextInt();
         int type = parser.nextInt();
-        String content = parser.next();
 
         if (channel != null) {
             String response = "RST;A;" + model + ";" + firmware + ";" + serial + ";" + index + ";6;FIM;";
@@ -88,201 +101,64 @@ public class RstProtocolDecoder extends BaseProtocolDecoder {
             return null;
         }
 
-        Position position = new Position(getProtocolName());
-        position.setDeviceId(deviceSession.getDeviceId());
-        position.set(Position.KEY_ARCHIVE, archive.equals("L"));
-        position.set(Position.KEY_INDEX, index);
-        position.set(Position.KEY_TYPE, type);
+        if (parser.hasNext()) {
 
-        if (content == null || content.isEmpty()) {
-            return type == 134 || type == 6 ? position : null;
-        }
+            Position position = new Position(getProtocolName());
+            position.setDeviceId(deviceSession.getDeviceId());
 
-        if (type == 1 || type == 2 || type == 40) {
-            Parser contentParser = new Parser(new PatternBuilder()
-                    .number("(dd)-(dd)-(dddd) ")         // event date
-                    .number("(dd):(dd):(dd);")           // event time
-                    .number("(dd)-(dd)-(dddd) ")         // fix date
-                    .number("(dd):(dd):(dd);")           // fix time
-                    .number("(-?d+.d+);")                // latitude
-                    .number("(-?d+.d+);")                // longitude
-                    .number("(d+);")                     // speed
-                    .number("(d+);")                     // course
-                    .number("(-?d+);")                   // altitude
-                    .number("([01]);")                   // valid
-                    .number("(d+);")                     // satellites
-                    .number("(d+);")                     // hdop
-                    .number("(xx);")                     // inputs 1
-                    .number("(xx);")                     // inputs 2
-                    .number("(xx);")                     // inputs 3
-                    .number("(xx);")                     // outputs 1
-                    .number("(xx);")                     // outputs 2
-                    .number("(d+.d+);")                  // power
-                    .number("(d+.d+);")                  // battery
-                    .number("(d+);")                     // odometer
-                    .number("(d+);")                     // rssi
-                    .number("(xx);")                     // temperature
-                    .number("x{4};")                     // sensors
-                    .number("(xx);")                     // status 1
-                    .number("(xx);")                     // status 2
-                    .expression("(.*)")
-                    .compile(), content);
+            position.setDeviceTime(parser.nextDateTime(Parser.DateTimeFormat.DMY_HMS));
+            position.setFixTime(parser.nextDateTime(Parser.DateTimeFormat.DMY_HMS));
+            position.setLatitude(parser.nextDouble());
+            position.setLongitude(parser.nextDouble());
+            position.setSpeed(UnitsConverter.knotsFromKph(parser.nextInt()));
+            position.setCourse(parser.nextInt());
+            position.setAltitude(parser.nextInt());
+            position.setValid(parser.nextInt() > 0);
 
-            if (contentParser.matches()) {
-                position.setDeviceTime(contentParser.nextDateTime(Parser.DateTimeFormat.DMY_HMS));
-                position.setFixTime(contentParser.nextDateTime(Parser.DateTimeFormat.DMY_HMS));
-                position.setLatitude(contentParser.nextDouble());
-                position.setLongitude(contentParser.nextDouble());
-                position.setSpeed(UnitsConverter.knotsFromKph(contentParser.nextInt()));
-                position.setCourse(contentParser.nextInt());
-                position.setAltitude(contentParser.nextInt());
-                position.setValid(contentParser.nextInt() > 0);
+            position.set(Position.KEY_SATELLITES, parser.nextInt());
+            position.set(Position.KEY_HDOP, parser.nextInt());
 
-                position.set(Position.KEY_SATELLITES, contentParser.nextInt());
-                position.set(Position.KEY_HDOP, contentParser.nextInt());
+            int inputs1 = parser.nextHexInt();
+            int inputs2 = parser.nextHexInt();
+            int inputs3 = parser.nextHexInt();
+            position.set(Position.PREFIX_IN + 1, inputs1);
+            position.set(Position.PREFIX_IN + 2, inputs2);
+            position.set(Position.PREFIX_IN + 3, inputs3);
 
-                int inputs1 = contentParser.nextHexInt();
-                int inputs2 = contentParser.nextHexInt();
-                int inputs3 = contentParser.nextHexInt();
-                position.set(Position.PREFIX_IN + 1, inputs1);
-                position.set(Position.PREFIX_IN + 2, inputs2);
-                position.set(Position.PREFIX_IN + 3, inputs3);
-                position.set(Position.KEY_IGNITION, BitUtil.check(inputs2, 7));
+            position.set(Position.KEY_IGNITION, BitUtil.check(inputs2, 7));
 
-                position.set(Position.PREFIX_OUT + 1, contentParser.nextHexInt());
-                position.set(Position.PREFIX_OUT + 2, contentParser.nextHexInt());
-                position.set(Position.KEY_POWER, contentParser.nextDouble());
-                position.set(Position.KEY_BATTERY, contentParser.nextDouble());
-                position.set(Position.KEY_ODOMETER, contentParser.nextInt());
-                position.set(Position.KEY_RSSI, contentParser.nextInt());
-                position.set(Position.PREFIX_TEMP + 1, (int) contentParser.nextHexInt().byteValue());
+            position.set(Position.PREFIX_OUT + 1, parser.nextHexInt());
+            position.set(Position.PREFIX_OUT + 2, parser.nextHexInt());
+            position.set(Position.KEY_POWER, parser.nextDouble());
+            position.set(Position.KEY_BATTERY, parser.nextDouble());
+            position.set(Position.KEY_ODOMETER, parser.nextInt());
+            position.set(Position.KEY_RSSI, parser.nextInt());
+            position.set(Position.PREFIX_TEMP + 1, (int) parser.nextHexInt().byteValue());
+            position.set(Position.KEY_STATUS, (parser.nextHexInt() << 8) + parser.nextHexInt());
 
-                int status1 = contentParser.nextHexInt();
-                int status2 = contentParser.nextHexInt();
-                position.set(Position.KEY_STATUS, (status1 << 8) + status2);
-                int charging = BitUtil.between(status2, 6, 8);
-                position.set(Position.KEY_CHARGE, charging == 1 || charging == 3);
-
-                int mode = BitUtil.to(status1, 4);
-                if (mode == 1) {
-                    position.set(Position.KEY_IGNITION, true);
-                } else if (mode == 2) {
-                    position.set(Position.KEY_IGNITION, false);
-                }
-
-                String tail = contentParser.next();
-                if (tail != null && !tail.isEmpty()) {
-                    String[] values = tail.split(";");
-                    int valueIndex = 0;
-                    if (values[valueIndex].length() == 8) {
-                        try {
-                            long mask = Long.parseLong(values[valueIndex++], 16);
-
-                            int tempCount = (int) BitUtil.from(mask, 28);
-                            for (int i = 0; i < tempCount; i++) {
-                                position.set(Position.PREFIX_TEMP + (i + 2), values[valueIndex++]);
-                            }
-
-                            if (BitUtil.check(mask, 27) || BitUtil.check(mask, 26)) {
-                                valueIndex += 4;
-                            }
-                            if (BitUtil.check(mask, 25) || BitUtil.check(mask, 24)) {
-                                valueIndex += 4;
-                            }
-                            if (BitUtil.check(mask, 23)) {
-                                position.set("partialDistance", Integer.parseInt(values[valueIndex++]));
-                            }
-                            if (BitUtil.check(mask, 22)) {
-                                valueIndex += 30;
-                            }
-                            if (BitUtil.check(mask, 21)) {
-                                position.set("trailerId", values[valueIndex++]);
-                            }
-                            if (BitUtil.check(mask, 20)) {
-                                valueIndex += 1;
-                            }
-                            if (BitUtil.check(mask, 19)) {
-                                valueIndex += 1;
-                            }
-                            if (BitUtil.check(mask, 18)) {
-                                valueIndex += 5;
-                            }
-                            if (BitUtil.check(mask, 17)) {
-                                valueIndex += 1;
-                            }
-                            if (BitUtil.check(mask, 16)) {
-                                valueIndex += 1;
-                            }
-                            if (BitUtil.check(mask, 15)) {
-                                valueIndex += 1;
-                            }
-                            if (BitUtil.check(mask, 14)) {
-                                valueIndex += 2;
-                            }
-                            if (BitUtil.check(mask, 13)) {
-                                valueIndex += 1;
-                            }
-                            if (BitUtil.check(mask, 12)) {
-                                valueIndex += 1;
-                            }
-                            if (BitUtil.check(mask, 11)) {
-                                valueIndex += 1;
-                            }
-                            if (BitUtil.check(mask, 10)) {
-                                valueIndex += 1;
-                            }
-                            if (BitUtil.check(mask, 9)) {
-                                position.set(Position.KEY_DRIVER_UNIQUE_ID, values[valueIndex++]);
-                            }
-                            if (BitUtil.check(mask, 5)) {
-                                position.set(Position.KEY_ODOMETER, Integer.parseInt(values[valueIndex++]));
-                            }
-
-                            if (BitUtil.check(mask, 1)) { // CAN Data
-                                if (valueIndex + 17 < values.length && !values[valueIndex + 2].isEmpty()) {
-                                    position.set(Position.KEY_COOLANT_TEMP, Integer.parseInt(values[valueIndex + 2]));
-                                    position.set(Position.KEY_RPM, Integer.parseInt(values[valueIndex + 4]));
-                                    position.set(Position.KEY_OBD_SPEED, Integer.parseInt(values[valueIndex + 5]));
-                                    position.set(Position.KEY_FUEL_LEVEL, Integer.parseInt(values[valueIndex + 8]));
-                                    position.set(Position.KEY_ODOMETER, Integer.parseInt(values[valueIndex + 17]));
-                                }
-                                valueIndex += 25;
-                            }
-
-                            if (BitUtil.check(mask, 0) && valueIndex < values.length) { // Adicional 2
-                                decodeAdicional2(position, values[valueIndex++], values, new int[]{valueIndex});
-                            }
-                        } catch (Exception e) {
-                            // ignore bitmask parsing errors
-                        }
-                    }
-                }
+            String[] values = parser.next().split(";");
+            if (type == 55) {
+                position.set(Position.KEY_DRIVER_UNIQUE_ID, values[0]);
             }
-        } else if (type == 75) {
-            Parser contentParser = new Parser(new PatternBuilder()
-                    .number("(dd)-(dd)-(dddd) ")
-                    .number("(dd):(dd):(dd);")
-                    .number("(dd)-(dd)-(dddd) ")
-                    .number("(dd):(dd):(dd);")
-                    .number("(-?d+.d+);")
-                    .number("(-?d+.d+);")
-                    .number("(d+);")
-                    .compile(), content);
-            if (contentParser.matches()) {
-                position.setDeviceTime(contentParser.nextDateTime(Parser.DateTimeFormat.DMY_HMS));
-                position.setFixTime(contentParser.nextDateTime(Parser.DateTimeFormat.DMY_HMS));
-                position.setLatitude(contentParser.nextDouble());
-                position.setLongitude(contentParser.nextDouble());
-                position.set(Position.KEY_HOURS, contentParser.nextInt() * 1000L);
-                position.setValid(true);
-            }
-        } else if (type == 55) {
-            position.set(Position.KEY_DRIVER_UNIQUE_ID, content.split(";")[0]);
-        } else if (type == 134 || type == 6) {
+
+            return position;
+
+        } else if (type == 134) {
+
+            Position position = new Position(getProtocolName());
+            position.setDeviceId(deviceSession.getDeviceId());
+
             getLastLocation(position, null);
+
             position.set(Position.KEY_RESULT, String.valueOf(type));
+
+            return position;
+
+        } else {
+
+            return null;
+
         }
-        return position;
     }
 
 }

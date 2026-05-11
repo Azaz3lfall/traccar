@@ -9,9 +9,12 @@ cd "$SCRIPT_DIR"
 # format: "username:password:host"
 HOSTS=(
     # "root:FurudUtsukNoncomUnrank:codeartisan.cloud",
-    "root:z8NatLbjZSJ7mT:v9.codeartisan.cloud"
+    # "root:z8NatLbjZSJ7mT:v9.codeartisan.cloud"
     # "root:F@z3r2025F@z3r:gps.oficinadoed.com"
-    # "root:Andres4420:207.180.192.102"
+    # "root:F@z3r2025F@z3r:gps.oficinadoed.com"
+    # "root:F@z3r2025F@z3r:178.104.136.152"
+    # "root:F@z3rF@z3r:178.104.200.242"
+    "root:_KFN_QVmK7Ug4E:65.109.60.145"
     # Add more hosts here
 )
 

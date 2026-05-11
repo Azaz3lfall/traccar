@@ -13,10 +13,6 @@
       <sqlCheck expectedResult="1">
         SELECT COUNT(*) FROM pg_available_extensions WHERE name = 'timescaledb';
       </sqlCheck>
-      <!-- Skip if tc_actions is already a hypertable (e.g. re-run after partial run) -->
-      <sqlCheck expectedResult="0">
-        SELECT COUNT(*) FROM timescaledb_information.hypertables WHERE hypertable_name = 'tc_actions';
-      </sqlCheck>
     </preConditions>
 
     <sql splitStatements="true" endDelimiter=";">
@@ -31,10 +27,6 @@
       );
 
       CREATE INDEX IF NOT EXISTS tc_actions_id_idx ON tc_actions(id);
-
-      SELECT add_retention_policy('tc_actions', INTERVAL '1 year');
-      SELECT add_retention_policy('tc_positions', INTERVAL '1 year');
-      SELECT add_retention_policy('tc_events', INTERVAL '1 year');
     </sql>
 
   </changeSet>

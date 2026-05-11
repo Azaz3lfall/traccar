@@ -45,12 +45,10 @@ public class MainEventHandler extends ChannelInboundHandlerAdapter {
 
     private final ConnectionManager connectionManager;
     private final Set<String> connectionlessProtocols = new HashSet<>();
-    private final boolean offlineOnDisconnect;
 
     @Inject
     public MainEventHandler(Config config, ConnectionManager connectionManager) {
         this.connectionManager = connectionManager;
-        this.offlineOnDisconnect = config.getBoolean(Keys.STATUS_OFFLINE_ON_DISCONNECT);
         String connectionlessProtocolList = config.getString(Keys.STATUS_IGNORE_OFFLINE);
         if (connectionlessProtocolList != null) {
             connectionlessProtocols.addAll(Arrays.asList(connectionlessProtocolList.split("[, ]")));
@@ -69,8 +67,7 @@ public class MainEventHandler extends ChannelInboundHandlerAdapter {
         LOGGER.info("[{}] disconnected", NetworkUtil.session(ctx.channel()));
         closeChannel(ctx.channel());
 
-        boolean supportsOffline = offlineOnDisconnect
-                && BasePipelineFactory.getHandler(ctx.pipeline(), HttpRequestDecoder.class) == null
+        boolean supportsOffline = BasePipelineFactory.getHandler(ctx.pipeline(), HttpRequestDecoder.class) == null
                 && !connectionlessProtocols.contains(ctx.pipeline().get(BaseProtocolDecoder.class).getProtocolName());
         connectionManager.deviceDisconnected(ctx.channel(), supportsOffline);
     }

@@ -19,7 +19,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.traccar.config.Config;
 import org.traccar.model.BaseModel;
 import org.traccar.model.Device;
-import org.traccar.model.DeviceStatusCounts;
 import org.traccar.model.MapBoundsRow;
 import org.traccar.model.MapCellRow;
 import org.traccar.model.Position;
@@ -37,7 +36,6 @@ import org.traccar.storage.query.Request;
 import jakarta.inject.Inject;
 import javax.sql.DataSource;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedList;
@@ -71,7 +69,8 @@ public class DatabaseStorage extends Storage {
 
     /** Time window for map/position queries (e.g. "24 hours", "2 days"). Uses position.turbo from config. */
     private String getPositionTurboWindow() {
-        return config.getString("position.turbo", "24 hours");
+        String value = config.getString("position.turbo");
+        return value != null ? value : "24 hours";
     }
 
     @Override
@@ -270,12 +269,14 @@ public class DatabaseStorage extends Storage {
             String posTable = getStorageName(Position.class);
             String devTable = getStorageName(Device.class);
             String permittedDevices = buildPermittedDeviceIdsSubquery();
-            String sql = "SELECT p.id, p.deviceid, p.latitude, p.longitude, p.course, d.name AS name, COALESCE(d.status, 'offline') AS status, d.category AS category "
-                    + "FROM " + devTable + " d "
-                    + "INNER JOIN " + posTable + " p ON d.positionid = p.id "
-                    + "WHERE p.latitude BETWEEN ? AND ? AND p.longitude BETWEEN ? AND ?"
-                    + "  AND d.id IN (" + permittedDevices + ")";
-            var builder = QueryBuilder.create(config, dataSource, objectMapper, sql);
+            StringBuilder sql = new StringBuilder()
+                    .append("SELECT p.id, p.deviceid, p.latitude, p.longitude, p.course, d.name AS name, ")
+                    .append("COALESCE(d.status, 'offline') AS status, d.category AS category ")
+                    .append("FROM ").append(devTable).append(" d ")
+                    .append("INNER JOIN ").append(posTable).append(" p ON d.positionid = p.id ")
+                    .append("WHERE p.latitude BETWEEN ? AND ? AND p.longitude BETWEEN ? AND ? ")
+                    .append("AND d.id IN (").append(permittedDevices).append(")");
+            var builder = QueryBuilder.create(config, dataSource, objectMapper, sql.toString());
             builder.setDouble(0, minLat);
             builder.setDouble(1, maxLat);
             builder.setDouble(2, minLon);
@@ -295,7 +296,12 @@ public class DatabaseStorage extends Storage {
 
     @Override
     public List<MapCellRow> getMapCellsInBounds(
-            long userId, double minLat, double maxLat, double minLon, double maxLon, double cellDeg) throws StorageException {
+            long userId,
+            double minLat,
+            double maxLat,
+            double minLon,
+            double maxLon,
+            double cellDeg) throws StorageException {
         if (!databaseType.toLowerCase().contains("postgresql")) {
             LOGGER.debug("getMapCellsInBounds: skipped (not PostgreSQL)");
             return List.of();
@@ -304,20 +310,22 @@ public class DatabaseStorage extends Storage {
             String posTable = getStorageName(Position.class);
             String devTable = getStorageName(Device.class);
             String permittedDevices = buildPermittedDeviceIdsSubquery();
-            String sql = "WITH latest AS ("
-                    + "  SELECT p.id, p.deviceid, p.latitude, p.longitude, p.course, d.name AS name, COALESCE(d.status, 'offline') AS status, d.category AS category "
-                    + "  FROM " + devTable + " d "
-                    + "  INNER JOIN " + posTable + " p ON d.positionid = p.id "
-                    + "  WHERE p.latitude BETWEEN ? AND ? AND p.longitude BETWEEN ? AND ?"
-                    + "    AND d.id IN (" + permittedDevices + ")"
-                    + "),"
-                    + " with_cell AS ("
-                    + "  SELECT *, FLOOR(longitude / ?)::bigint AS cell_x, FLOOR(latitude / ?)::bigint AS cell_y FROM latest"
-                    + ")"
-                    + " SELECT COUNT(*) AS count, AVG(latitude) AS latitude, AVG(longitude) AS longitude,"
-                    + " MIN(id) AS id, MIN(deviceid) AS deviceid, MIN(course) AS course, MIN(name) AS name, MIN(status) AS status, MIN(category) AS category"
-                    + " FROM with_cell GROUP BY cell_x, cell_y";
-            var builder = QueryBuilder.create(config, dataSource, objectMapper, sql);
+            StringBuilder sql = new StringBuilder()
+                    .append("WITH latest AS (")
+                    .append("  SELECT p.id, p.deviceid, p.latitude, p.longitude, p.course, d.name AS name, ")
+                    .append("COALESCE(d.status, 'offline') AS status, d.category AS category ")
+                    .append("  FROM ").append(devTable).append(" d ")
+                    .append("  INNER JOIN ").append(posTable).append(" p ON d.positionid = p.id ")
+                    .append("  WHERE p.latitude BETWEEN ? AND ? AND p.longitude BETWEEN ? AND ? ")
+                    .append("    AND d.id IN (").append(permittedDevices).append(")")
+                    .append("), with_cell AS (")
+                    .append("  SELECT *, FLOOR(longitude / ?)::bigint AS cell_x, ")
+                    .append("FLOOR(latitude / ?)::bigint AS cell_y FROM latest")
+                    .append(") SELECT COUNT(*) AS count, AVG(latitude) AS latitude, AVG(longitude) AS longitude, ")
+                    .append("MIN(id) AS id, MIN(deviceid) AS deviceid, MIN(course) AS course, MIN(name) AS name, ")
+                    .append("MIN(status) AS status, MIN(category) AS category ")
+                    .append("FROM with_cell GROUP BY cell_x, cell_y");
+            var builder = QueryBuilder.create(config, dataSource, objectMapper, sql.toString());
             builder.setDouble(0, minLat);
             builder.setDouble(1, maxLat);
             builder.setDouble(2, minLon);
@@ -355,12 +363,19 @@ public class DatabaseStorage extends Storage {
         }
     }
 
-    /** Approximate meters per degree at equator for WGS84 (used to convert eps meters → degrees). */
+    /**
+     * Approximate meters per degree at equator for WGS84 (used to convert eps meters → degrees).
+     */
     private static final double METERS_PER_DEGREE = 111_320.0;
 
     @Override
     public List<MapCellRow> getMapCellsInBoundsDistance(
-            long userId, double minLat, double maxLat, double minLon, double maxLon, double epsMeters) throws StorageException {
+            long userId,
+            double minLat,
+            double maxLat,
+            double minLon,
+            double maxLon,
+            double epsMeters) throws StorageException {
         if (!databaseType.toLowerCase().contains("postgresql")) {
             LOGGER.debug("getMapCellsInBoundsDistance: skipped (not PostgreSQL)");
             return List.of();
@@ -374,26 +389,27 @@ public class DatabaseStorage extends Storage {
             String devTable = getStorageName(Device.class);
             String permittedDevices = buildPermittedDeviceIdsSubquery();
             double epsDegrees = epsMeters / METERS_PER_DEGREE;
-            String sql = "WITH latest AS ("
-                    + "  SELECT p.id, p.deviceid, p.latitude, p.longitude, p.course, d.name AS name, COALESCE(d.status, 'offline') AS status, d.category AS category "
-                    + "  FROM " + devTable + " d "
-                    + "  INNER JOIN " + posTable + " p ON d.positionid = p.id "
-                    + "  WHERE p.latitude BETWEEN ? AND ? AND p.longitude BETWEEN ? AND ?"
-                    + "    AND d.id IN (" + permittedDevices + ")"
-                    + "),"
-                    + " with_geom AS ("
-                    + "  SELECT *, ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geometry AS geom FROM latest"
-                    + "),"
-                    + " with_cluster AS ("
-                    + "  SELECT *, COALESCE("
-                    + "    ST_ClusterDBSCAN(geom, ?::double precision, 5) OVER (ORDER BY id),"
-                    + "    -ROW_NUMBER() OVER (ORDER BY id)"
-                    + "  ) AS cluster_id FROM with_geom"
-                    + ")"
-                    + " SELECT COUNT(*) AS count, AVG(latitude) AS latitude, AVG(longitude) AS longitude,"
-                    + " MIN(id) AS id, MIN(deviceid) AS deviceid, MIN(course) AS course, MIN(name) AS name, MIN(status) AS status, MIN(category) AS category"
-                    + " FROM with_cluster GROUP BY cluster_id";
-            var builder = QueryBuilder.create(config, dataSource, objectMapper, sql);
+            StringBuilder sql = new StringBuilder()
+                    .append("WITH latest AS (")
+                    .append("  SELECT p.id, p.deviceid, p.latitude, p.longitude, p.course, d.name AS name, ")
+                    .append("COALESCE(d.status, 'offline') AS status, d.category AS category ")
+                    .append("  FROM ").append(devTable).append(" d ")
+                    .append("  INNER JOIN ").append(posTable).append(" p ON d.positionid = p.id ")
+                    .append("  WHERE p.latitude BETWEEN ? AND ? AND p.longitude BETWEEN ? AND ? ")
+                    .append("    AND d.id IN (").append(permittedDevices).append(")")
+                    .append("), with_geom AS (")
+                    .append("  SELECT *, ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geometry AS geom ")
+                    .append("FROM latest")
+                    .append("), with_cluster AS (")
+                    .append("  SELECT *, COALESCE(")
+                    .append("    ST_ClusterDBSCAN(geom, ?::double precision, 5) OVER (ORDER BY id),")
+                    .append("    -ROW_NUMBER() OVER (ORDER BY id)")
+                    .append("  ) AS cluster_id FROM with_geom")
+                    .append(") SELECT COUNT(*) AS count, AVG(latitude) AS latitude, AVG(longitude) AS longitude, ")
+                    .append("MIN(id) AS id, MIN(deviceid) AS deviceid, MIN(course) AS course, MIN(name) AS name, ")
+                    .append("MIN(status) AS status, MIN(category) AS category ")
+                    .append("FROM with_cluster GROUP BY cluster_id");
+            var builder = QueryBuilder.create(config, dataSource, objectMapper, sql.toString());
             builder.setDouble(0, minLat);
             builder.setDouble(1, maxLat);
             builder.setDouble(2, minLon);
@@ -430,25 +446,26 @@ public class DatabaseStorage extends Storage {
             String devTable = getStorageName(Device.class);
             String permittedDevices = buildPermittedDeviceIdsSubquery();
             double epsDegrees = epsMeters / METERS_PER_DEGREE;
-            String sql = "WITH latest AS ("
-                    + "  SELECT p.id, p.deviceid, p.latitude, p.longitude, p.course, d.name AS name, COALESCE(d.status, 'offline') AS status, d.category AS category "
-                    + "  FROM " + devTable + " d "
-                    + "  INNER JOIN " + posTable + " p ON d.positionid = p.id "
-                    + "  WHERE d.id IN (" + permittedDevices + ")"
-                    + "),"
-                    + " with_geom AS ("
-                    + "  SELECT *, ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geometry AS geom FROM latest"
-                    + "),"
-                    + " with_cluster AS ("
-                    + "  SELECT *, COALESCE("
-                    + "    ST_ClusterDBSCAN(geom, ?::double precision, 5) OVER (ORDER BY id),"
-                    + "    -ROW_NUMBER() OVER (ORDER BY id)"
-                    + "  ) AS cluster_id FROM with_geom"
-                    + ")"
-                    + " SELECT COUNT(*) AS count, AVG(latitude) AS latitude, AVG(longitude) AS longitude,"
-                    + " MIN(id) AS id, MIN(deviceid) AS deviceid, MIN(course) AS course, MIN(name) AS name, MIN(status) AS status, MIN(category) AS category"
-                    + " FROM with_cluster GROUP BY cluster_id";
-            var builder = QueryBuilder.create(config, dataSource, objectMapper, sql);
+            StringBuilder sql = new StringBuilder()
+                    .append("WITH latest AS (")
+                    .append("  SELECT p.id, p.deviceid, p.latitude, p.longitude, p.course, d.name AS name, ")
+                    .append("COALESCE(d.status, 'offline') AS status, d.category AS category ")
+                    .append("  FROM ").append(devTable).append(" d ")
+                    .append("  INNER JOIN ").append(posTable).append(" p ON d.positionid = p.id ")
+                    .append("  WHERE d.id IN (").append(permittedDevices).append(")")
+                    .append("), with_geom AS (")
+                    .append("  SELECT *, ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geometry AS geom ")
+                    .append("FROM latest")
+                    .append("), with_cluster AS (")
+                    .append("  SELECT *, COALESCE(")
+                    .append("    ST_ClusterDBSCAN(geom, ?::double precision, 5) OVER (ORDER BY id),")
+                    .append("    -ROW_NUMBER() OVER (ORDER BY id)")
+                    .append("  ) AS cluster_id FROM with_geom")
+                    .append(") SELECT COUNT(*) AS count, AVG(latitude) AS latitude, AVG(longitude) AS longitude, ")
+                    .append("MIN(id) AS id, MIN(deviceid) AS deviceid, MIN(course) AS course, MIN(name) AS name, ")
+                    .append("MIN(status) AS status, MIN(category) AS category ")
+                    .append("FROM with_cluster GROUP BY cluster_id");
+            var builder = QueryBuilder.create(config, dataSource, objectMapper, sql.toString());
             builder.setLong(0, userId);
             builder.setLong(1, userId);
             builder.setDouble(2, epsDegrees);
@@ -475,9 +492,12 @@ public class DatabaseStorage extends Storage {
             if (clusters.isEmpty()) {
                 return;
             }
-            String insertSql = "INSERT INTO " + MAP_CLUSTERS_TABLE
-                    + " (userid, zoom_band, latitude, longitude, count, position_id, deviceid, course, name, status, category)"
-                    + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            String insertSql = new StringBuilder()
+                    .append("INSERT INTO ").append(MAP_CLUSTERS_TABLE)
+                    .append(" (userid, zoom_band, latitude, longitude, count, position_id, deviceid, course, ")
+                    .append("name, status, category)")
+                    .append(" VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+                    .toString();
             for (var row : clusters) {
                 var insertBuilder = QueryBuilder.create(config, dataSource, objectMapper, insertSql);
                 int i = 0;
@@ -509,9 +529,13 @@ public class DatabaseStorage extends Storage {
             return List.of();
         }
         try {
-            String sql = "SELECT latitude, longitude, count, position_id AS \"id\", deviceid AS \"deviceId\", course, name, status, category "
-                    + "FROM " + MAP_CLUSTERS_TABLE
-                    + " WHERE userid = ? AND zoom_band = ? AND latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?";
+            String sql = new StringBuilder()
+                    .append("SELECT latitude, longitude, count, position_id AS \"id\", deviceid AS \"deviceId\", ")
+                    .append("course, name, status, category ")
+                    .append("FROM ").append(MAP_CLUSTERS_TABLE).append(" ")
+                    .append("WHERE userid = ? AND zoom_band = ? AND latitude BETWEEN ? AND ? ")
+                    .append("AND longitude BETWEEN ? AND ?")
+                    .toString();
             var builder = QueryBuilder.create(config, dataSource, objectMapper, sql);
             builder.setLong(0, userId);
             builder.setInteger(1, zoomBand);
@@ -529,222 +553,6 @@ public class DatabaseStorage extends Storage {
     }
 
     @Override
-    public Stream<Device> getDevicesWithFilters(
-            long userId, Columns columns, boolean skipPermissionFilter, Long groupId, String status, String search,
-            Date lastUpdateFrom, Date lastUpdateTo, String sortBy, boolean sortDescending,
-            int offset, int limit) throws StorageException {
-        if (!databaseType.toLowerCase().contains("postgresql")) {
-            LOGGER.debug("getDevicesWithFilters: skipped (not PostgreSQL)");
-            return Stream.empty();
-        }
-        try {
-            String devTable = getStorageName(Device.class);
-            
-            // Build SELECT clause
-            StringBuilder sql = new StringBuilder("SELECT ");
-            if (columns instanceof Columns.All) {
-                sql.append("d.*");
-            } else {
-                List<String> columnList = columns.getColumns(Device.class, "set");
-                if (columnList.isEmpty()) {
-                    sql.append("d.*");
-                } else {
-                    sql.append(formatColumns(columnList, c -> "d." + c));
-                }
-            }
-            sql.append(" FROM ").append(devTable).append(" d");
-            
-            List<Object> params = new ArrayList<>();
-            int paramIndex = 0;
-            
-            // Permission filter (skip if admin + all=true)
-            if (!skipPermissionFilter) {
-                String permittedDevices = buildPermittedDeviceIdsSubquery();
-                sql.append(" WHERE d.id IN (").append(permittedDevices).append(")");
-                // Permission params (userId x2)
-                params.add(userId);
-                params.add(userId);
-                paramIndex += 2;
-            } else {
-                sql.append(" WHERE 1=1");
-            }
-            
-            // groupId filter
-            if (groupId != null) {
-                sql.append(" AND d.groupid = ?");
-                params.add(groupId);
-                paramIndex++;
-            }
-            
-            // status filter
-            boolean isNrStatus = status != null && !status.isEmpty() && "nr".equalsIgnoreCase(status);
-            if (status != null && !status.isEmpty() && !isNrStatus) {
-                sql.append(" AND COALESCE(d.status, 'offline') = ?");
-                params.add(status.toLowerCase());
-                paramIndex++;
-            }
-            
-            // lastUpdate filters (skip if status="NR")
-            if (!isNrStatus) {
-                if (lastUpdateFrom != null) {
-                    sql.append(" AND d.lastupdate >= ?");
-                    params.add(new Timestamp(lastUpdateFrom.getTime()));
-                    paramIndex++;
-                }
-                if (lastUpdateTo != null) {
-                    sql.append(" AND d.lastupdate <= ?");
-                    params.add(new Timestamp(lastUpdateTo.getTime()));
-                    paramIndex++;
-                }
-            }
-            
-            // "NR" status filter (null lastUpdate)
-            if (isNrStatus) {
-                sql.append(" AND d.lastupdate IS NULL");
-            }
-            
-            // search filter (name + uniqueId)
-            if (search != null && !search.isEmpty()) {
-                String searchPattern = "%" + search + "%";
-                sql.append(" AND (LOWER(d.name) LIKE LOWER(?) OR LOWER(d.uniqueid) LIKE LOWER(?))");
-                params.add(searchPattern);
-                params.add(searchPattern);
-                paramIndex += 2;
-            }
-            
-            // ORDER BY
-            sql.append(" ORDER BY ");
-            if (sortBy != null && !sortBy.isEmpty()) {
-                String sortByLower = sortBy.toLowerCase();
-                switch (sortByLower) {
-                    case "name":
-                        sql.append("d.name");
-                        break;
-                    case "uniqueid":
-                        sql.append("d.uniqueid");
-                        break;
-                    case "groupid":
-                        sql.append("d.groupid");
-                        break;
-                    case "status":
-                        sql.append("COALESCE(d.status, 'offline')");
-                        break;
-                    case "lastupdate":
-                        sql.append("d.lastupdate");
-                        break;
-                    default:
-                        sql.append("d.name");
-                }
-                sql.append(sortDescending ? " DESC" : " ASC");
-                if ("lastupdate".equals(sortByLower)) {
-                    sql.append(sortDescending ? " NULLS FIRST" : " NULLS LAST");
-                }
-            } else {
-                sql.append("d.name ASC");
-            }
-            
-            // LIMIT/OFFSET
-            if (limit > 0) {
-                sql.append(" LIMIT ? OFFSET ?");
-                params.add(limit);
-                params.add(offset);
-            }
-            
-            var builder = QueryBuilder.create(config, dataSource, objectMapper, sql.toString());
-            for (int i = 0; i < params.size(); i++) {
-                builder.setValue(i, params.get(i));
-            }
-            
-            return builder.executeQueryStreamed(Device.class);
-        } catch (SQLException e) {
-            LOGGER.warn("getDevicesWithFilters: query failed", e);
-            throw new StorageException(e);
-        }
-    }
-
-    /** Row for status count query: status label and count. Setters required so QueryBuilder can map ResultSet columns (s, cnt) via reflection. */
-    static class StatusCountRow {
-        public StatusCountRow() {}
-        public String s;
-        public long cnt;
-
-        public void setS(String s) {
-            this.s = s;
-        }
-
-        public void setCnt(long cnt) {
-            this.cnt = cnt;
-        }
-    }
-
-    @Override
-    public DeviceStatusCounts getDeviceStatusCounts(
-            long userId, boolean skipPermissionFilter, Long groupId, String search,
-            Date lastUpdateFrom, Date lastUpdateTo) throws StorageException {
-        String db = databaseType.toLowerCase();
-        if (!db.contains("postgresql") && !db.contains("postgres")) {
-            return null;
-        }
-        try {
-            String devTable = getStorageName(Device.class);
-            StringBuilder sql = new StringBuilder(
-                    "SELECT LOWER(COALESCE(d.status, 'offline')) AS s, COUNT(*) AS cnt FROM ")
-                    .append(devTable).append(" d");
-            List<Object> params = new ArrayList<>();
-            if (!skipPermissionFilter) {
-                String permittedDevices = buildPermittedDeviceIdsSubquery();
-                sql.append(" WHERE d.id IN (").append(permittedDevices).append(")");
-                params.add(userId);
-                params.add(userId);
-            } else {
-                sql.append(" WHERE 1=1");
-            }
-            if (groupId != null) {
-                sql.append(" AND d.groupid = ?");
-                params.add(groupId);
-            }
-            if (lastUpdateFrom != null) {
-                sql.append(" AND d.lastupdate >= ?");
-                params.add(new Timestamp(lastUpdateFrom.getTime()));
-            }
-            if (lastUpdateTo != null) {
-                sql.append(" AND d.lastupdate <= ?");
-                params.add(new Timestamp(lastUpdateTo.getTime()));
-            }
-            if (search != null && !search.isEmpty()) {
-                String searchPattern = "%" + search + "%";
-                sql.append(" AND (LOWER(d.name) LIKE LOWER(?) OR LOWER(d.uniqueid) LIKE LOWER(?))");
-                params.add(searchPattern);
-                params.add(searchPattern);
-            }
-            sql.append(" GROUP BY LOWER(COALESCE(d.status, 'offline'))");
-            var builder = QueryBuilder.create(config, dataSource, objectMapper, sql.toString());
-            for (int i = 0; i < params.size(); i++) {
-                builder.setValue(i, params.get(i));
-            }
-            long online = 0;
-            long offline = 0;
-            long unknown = 0;
-            try (Stream<StatusCountRow> stream = builder.executeQueryStreamed(StatusCountRow.class)) {
-                for (StatusCountRow row : (Iterable<StatusCountRow>) stream::iterator) {
-                    long c = row.cnt;
-                    if ("online".equals(row.s)) {
-                        online = c;
-                    } else if ("offline".equals(row.s)) {
-                        offline = c;
-                    } else {
-                        unknown += c;
-                    }
-                }
-            }
-            return new DeviceStatusCounts(online, offline, unknown);
-        } catch (SQLException e) {
-            LOGGER.warn("getDeviceStatusCounts: query failed", e);
-            throw new StorageException(e);
-        }
-    }
-
-    @Override
     public MapBoundsRow getMapBoundsForUser(long userId) throws StorageException {
         if (!databaseType.toLowerCase().contains("postgresql")) {
             return null;
@@ -753,11 +561,14 @@ public class DatabaseStorage extends Storage {
             String posTable = getStorageName(Position.class);
             String devTable = getStorageName(Device.class);
             String permittedDevices = buildPermittedDeviceIdsSubquery();
-            String sql = "SELECT MIN(p.latitude) AS \"minLat\", MAX(p.latitude) AS \"maxLat\", "
-                    + "MIN(p.longitude) AS \"minLon\", MAX(p.longitude) AS \"maxLon\", COUNT(*) AS \"deviceCount\" "
-                    + "FROM " + devTable + " d "
-                    + "INNER JOIN " + posTable + " p ON d.positionid = p.id "
-                    + "WHERE d.id IN (" + permittedDevices + ")";
+            String sql = new StringBuilder()
+                    .append("SELECT MIN(p.latitude) AS \"minLat\", MAX(p.latitude) AS \"maxLat\", ")
+                    .append("MIN(p.longitude) AS \"minLon\", MAX(p.longitude) AS \"maxLon\", ")
+                    .append("COUNT(*) AS \"deviceCount\" ")
+                    .append("FROM ").append(devTable).append(" d ")
+                    .append("INNER JOIN ").append(posTable).append(" p ON d.positionid = p.id ")
+                    .append("WHERE d.id IN (").append(permittedDevices).append(")")
+                    .toString();
             var builder = QueryBuilder.create(config, dataSource, objectMapper, sql);
             builder.setLong(0, userId);
             builder.setLong(1, userId);
@@ -765,7 +576,9 @@ public class DatabaseStorage extends Storage {
                 MapBoundsRow row = stream.findFirst().orElse(null);
                 if (row != null) {
                     LOGGER.debug("getMapBoundsForUser: user {} -> bounds [{},{},{},{}] count {}",
-                            userId, row.getMinLat(), row.getMaxLat(), row.getMinLon(), row.getMaxLon(), row.getDeviceCount());
+                            userId,
+                            row.getMinLat(), row.getMaxLat(), row.getMinLon(), row.getMaxLon(),
+                            row.getDeviceCount());
                 }
                 return row;
             }
@@ -775,7 +588,10 @@ public class DatabaseStorage extends Storage {
         }
     }
 
-    /** Same device list as web: tc_user_device + devices from user's groups (with hierarchy). 2 params: userId, userId. */
+    /**
+     * Same device list as web: tc_user_device + devices from user's groups (with hierarchy).
+     * 2 params: userId, userId.
+     */
     private String buildPermittedDeviceIdsSubquery() throws StorageException {
         String groupTable = getStorageName(Group.class);
         String userDeviceTable = Permission.getStorageName(User.class, Device.class);
@@ -819,14 +635,14 @@ public class DatabaseStorage extends Storage {
                 results.add(conditionId);
             }
         } else if (genericCondition instanceof Condition.LatestPositions condition) {
-            if (condition.getUserId() > 0) {
-                results.add(condition.getUserId());
-            }
-            if (condition.getTurbo() != null) {
-                results.add(condition.getTurbo());
-            }
             if (condition.getDeviceId() > 0) {
                 results.add(condition.getDeviceId());
+                results.add(condition.getDeviceId());
+            } else {
+                long period = config.getLong(org.traccar.config.Keys.DATABASE_POSITION_PERIOD);
+                if (period > 0) {
+                    results.add(new Date(System.currentTimeMillis() - period * 1000));
+                }
             }
         }
         return results;
@@ -880,30 +696,21 @@ public class DatabaseStorage extends Storage {
 
             } else if (genericCondition instanceof Condition.LatestPositions condition) {
 
-                if (databaseType.toLowerCase().contains("postgresql")) {
-                    LOGGER.info("Generating optimized PostgreSQL query for LatestPositions. Window: {}", condition.getTurbo());
-                    result.append("id IN (");
-                    result.append("SELECT d.positionid FROM ").append(getStorageName(Device.class)).append(" d ");
-                    result.append("JOIN tc_user_device ud ON d.id = ud.deviceid AND ud.userid = ? ");
-                    result.append("JOIN ").append(getStorageName(Position.class)).append(" p ON d.positionid = p.id ");
-                    result.append("WHERE 1=1 ");
-                    if (condition.getTurbo() != null) {
-                        result.append("AND p.fixtime > NOW() - (?)::interval ");
-                    }
-                    if (condition.getDeviceId() > 0) {
-                        result.append("AND d.id = ? ");
-                    }
-                    result.append(")");
+                if (condition.getDeviceId() > 0) {
+                    result.append("deviceId = ? AND ");
                 } else {
-                    LOGGER.warn("Using SLOW fallback query for LatestPositions. DB type: {}", databaseType);
-                    result.append("id IN (");
-                    result.append("SELECT positionId FROM ");
-                    result.append(getStorageName(Device.class));
-                    if (condition.getDeviceId() > 0) {
-                        result.append(" WHERE id = ?");
+                    long period = config.getLong(org.traccar.config.Keys.DATABASE_POSITION_PERIOD);
+                    if (period > 0) {
+                        result.append("fixTime > ? AND ");
                     }
-                    result.append(")");
                 }
+                result.append("id IN (");
+                result.append("SELECT positionId FROM ");
+                result.append(getStorageName(Device.class));
+                if (condition.getDeviceId() > 0) {
+                    result.append(" WHERE id = ?");
+                }
+                result.append(")");
 
             }
         }

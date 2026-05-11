@@ -16,18 +16,14 @@
 package org.traccar.storage;
 
 import org.traccar.model.BaseModel;
-import org.traccar.model.Device;
-import org.traccar.model.DeviceStatusCounts;
 import org.traccar.model.MapBoundsRow;
 import org.traccar.model.MapCellRow;
 import org.traccar.model.Permission;
 import org.traccar.model.PositionMapItem;
 import org.traccar.model.PositionWithDevice;
-import org.traccar.storage.query.Columns;
 import org.traccar.storage.query.Request;
 
 import java.util.Collections;
-import java.util.Date;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -85,16 +81,23 @@ public abstract class Storage {
      * Returns bounding box and count of all user's latest positions (for initial map load).
      * Implemented only for PostgreSQL. Others return null.
      */
-    public MapBoundsRow getMapBoundsForUser(long userId) throws StorageException {
+    public MapBoundsRow getMapBoundsForUser(long userId)
+            throws StorageException {
         return null;
     }
 
     /**
-     * Returns one row per grid cell: count + centroid (avg lat/lon); for count=1 row also has id, deviceId, name, status.
+     * Returns one row per grid cell: count + centroid (avg lat/lon); for count=1 row also has id, deviceId,
+     * name, status.
      * Clustering is done in DB. Implemented only for PostgreSQL. Others return empty list.
      */
     public List<MapCellRow> getMapCellsInBounds(
-            long userId, double minLat, double maxLat, double minLon, double maxLon, double cellDeg) throws StorageException {
+            long userId,
+            double minLat,
+            double maxLat,
+            double minLon,
+            double maxLon,
+            double cellDeg) throws StorageException {
         return Collections.emptyList();
     }
 
@@ -111,31 +114,13 @@ public abstract class Storage {
      * Implemented only for PostgreSQL with PostGIS. Others return empty list.
      */
     public List<MapCellRow> getMapCellsInBoundsDistance(
-            long userId, double minLat, double maxLat, double minLon, double maxLon, double epsMeters) throws StorageException {
+            long userId,
+            double minLat,
+            double maxLat,
+            double minLon,
+            double maxLon,
+            double epsMeters) throws StorageException {
         return Collections.emptyList();
-    }
-
-    /**
-     * Returns devices with advanced filtering (groupId, status, lastUpdate, search, sort).
-     * All filtering and sorting done at DB level (PostgreSQL). Others return empty stream.
-     * Status can be "online", "offline", "unknown", or "NR" (Never Reported = null lastUpdate).
-     * @param skipPermissionFilter if true, skip permission filtering (for admin + all=true case)
-     */
-    public Stream<Device> getDevicesWithFilters(
-            long userId, Columns columns, boolean skipPermissionFilter, Long groupId, String status, String search,
-            Date lastUpdateFrom, Date lastUpdateTo, String sortBy, boolean sortDescending,
-            int offset, int limit) throws StorageException {
-        return Stream.empty();
-    }
-
-    /**
-     * Returns counts of devices by status (online, offline, unknown) with the same filters as getDevicesWithFilters
-     * but without a status filter. For metadata on the devices list. Returns null when not supported (e.g. non-PostgreSQL).
-     */
-    public DeviceStatusCounts getDeviceStatusCounts(
-            long userId, boolean skipPermissionFilter, Long groupId, String search,
-            Date lastUpdateFrom, Date lastUpdateTo) throws StorageException {
-        return null;
     }
 
     /**

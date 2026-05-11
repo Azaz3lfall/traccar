@@ -50,7 +50,8 @@ public class DolphinProtocolDecoder extends BaseProtocolDecoder {
         buf.readUnsignedShort(); // flags
         int type = buf.readUnsignedShortLE();
 
-        DeviceSession deviceSession = getDeviceSession(channel, remoteAddress, String.valueOf(buf.readLongLE()));
+        long deviceId = buf.readLongLE();
+        DeviceSession deviceSession = getDeviceSession(channel, remoteAddress, String.valueOf(deviceId));
         if (deviceSession == null) {
             return null;
         }
@@ -72,8 +73,10 @@ public class DolphinProtocolDecoder extends BaseProtocolDecoder {
                 ByteBuf response = Unpooled.buffer();
                 response.writeShort(0xABAB); // header
                 response.writeIntLE(index);
+                response.writeShort(0); // version
                 response.writeShort(0); // flags
                 response.writeShortLE(DolphinMessages.MessageType.DataPack_Response.getNumber());
+                response.writeLongLE(deviceId);
                 response.writeIntLE(responseData.length);
                 response.writeIntLE(0); // reserved
                 response.writeBytes(responseData);

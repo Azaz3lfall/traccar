@@ -62,6 +62,18 @@ public final class PositionUtil {
         }
     }
 
+    public static Stream<Position> getPositionsStreamWithExtra(
+            Storage storage, long deviceId, Date from, Date to) throws StorageException {
+        Stream<Position> extraStream = storage.getObjectsStream(Position.class, new Request(
+                new Columns.All(),
+                new Condition.And(
+                        new Condition.Equals("deviceId", deviceId),
+                        new Condition.Compare("fixTime", "<", from)),
+                new Order("fixTime", true, 1)));
+        Stream<Position> positions = getPositionsStream(storage, deviceId, from, to);
+        return Stream.concat(extraStream, positions);
+    }
+
     public static Stream<Position> getPositionsStream(
             Storage storage, long deviceId, Date from, Date to) throws StorageException {
         return storage.getObjectsStream(Position.class, new Request(
@@ -83,13 +95,16 @@ public final class PositionUtil {
     }
 
     public static List<Position> getLatestPositions(Storage storage, long userId) throws StorageException {
-        return getLatestPositions(storage, userId, null);
-    }
+        var devices = storage.getObjects(Device.class, new Request(
+                new Columns.Include("id"),
+                new Condition.Permission(User.class, userId, Device.class)));
+        var deviceIds = devices.stream().map(BaseModel::getId).collect(Collectors.toUnmodifiableSet());
 
-    public static List<Position> getLatestPositions(
-            Storage storage, long userId, String turbo) throws StorageException {
-        return storage.getObjects(Position.class, new Request(
-                new Columns.All(), new Condition.LatestPositions(userId, turbo)));
+        var positions = storage.getObjects(Position.class, new Request(
+                new Columns.All(), new Condition.LatestPositions()));
+        return positions.stream()
+                .filter(position -> deviceIds.contains(position.getDeviceId()))
+                .toList();
     }
 
 }

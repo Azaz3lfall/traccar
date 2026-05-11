@@ -18,7 +18,6 @@ package org.traccar.schedule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traccar.config.Config;
-import org.traccar.config.Keys;
 import org.traccar.model.MapCellRow;
 import org.traccar.model.User;
 import org.traccar.storage.Storage;
@@ -52,7 +51,8 @@ public class TaskMapClusterCache extends SingleScheduleTask {
     @Inject
     public TaskMapClusterCache(Storage storage, Config config) {
         this.storage = storage;
-        this.periodSeconds = config.getLong(Keys.MAP_CLUSTER_CACHE_PERIOD);
+        String value = config.getString("map.cluster.cache.period");
+        this.periodSeconds = value != null ? Long.parseLong(value) : 900;
     }
 
     @Override

@@ -18,7 +18,6 @@ package org.traccar.api.resource;
 import org.traccar.api.BaseResource;
 import org.traccar.helper.model.PositionUtil;
 import org.traccar.api.security.LoginService;
-import org.traccar.model.Command;
 import org.traccar.model.Device;
 import org.traccar.model.Geofence;
 import org.traccar.model.Position;
@@ -54,8 +53,8 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.StreamingOutput;
+import javax.xml.stream.XMLStreamException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
@@ -103,15 +102,22 @@ public class PositionResource extends BaseResource {
 
     /** Eps in meters by zoom (index 0..14 = zoom 0..15). Zoom 16+ = no clustering. Zoom 0–6 = big cluster (2000 km). */
     private static final double[] EPS_METERS_BY_ZOOM = {
-        2_000_000.0, 2_000_000.0, 2_000_000.0, 2_000_000.0, 2_000_000.0, 2_000_000.0, 2_000_000.0,  /* zoom 0–6: big cluster */
-        25_000.0, 12_000.0, 6_000.0, 3_000.0, 1_500.0, 800.0, 400.0,  /* zoom 7–13: region/city */
-        200.0, 100.0   /* zoom 14–15: neighborhood */
+        // zoom 0–6: big cluster
+        2_000_000.0, 2_000_000.0, 2_000_000.0, 2_000_000.0, 2_000_000.0, 2_000_000.0, 2_000_000.0,
+        // zoom 7–13: region/city
+        25_000.0, 12_000.0, 6_000.0, 3_000.0, 1_500.0, 800.0, 400.0,
+        // zoom 14–15: neighborhood
+        200.0, 100.0
     };
 
     /** Clamp zoom to [MIN_ZOOM, MAX_ZOOM]; out-of-range uses closest. */
     private static int clampZoom(int zoom) {
-        if (zoom < MIN_ZOOM) return MIN_ZOOM;
-        if (zoom > MAX_ZOOM) return MAX_ZOOM;
+        if (zoom < MIN_ZOOM) {
+            return MIN_ZOOM;
+        }
+        if (zoom > MAX_ZOOM) {
+            return MAX_ZOOM;
+        }
         return zoom;
     }
 
@@ -123,7 +129,9 @@ public class PositionResource extends BaseResource {
 
     /** Zoom level from longitude span (narrow bounds => higher zoom). */
     private static int zoomFromLonSpan(double lonSpan) {
-        if (lonSpan <= 0) return MAX_ZOOM;
+        if (lonSpan <= 0) {
+            return MAX_ZOOM;
+        }
         int z = (int) Math.floor(Math.log(360.0 / Math.max(lonSpan, 0.001)) / Math.log(2));
         return clampZoom(z);
     }
@@ -139,7 +147,7 @@ public class PositionResource extends BaseResource {
         return new Bounds(minLatExp, maxLatExp, minLonExp, maxLonExp);
     }
 
-    private record Bounds(double minLat, double maxLat, double minLon, double maxLon) {}
+    private record Bounds(double minLat, double maxLat, double minLon, double maxLon) { }
 
     /** Default expand factor (50% each side) when not provided by client. */
     private static final double DEFAULT_EXPAND_FACTOR = 0.5;
@@ -172,14 +180,23 @@ public class PositionResource extends BaseResource {
                     }
                 }
                 PositionsMapResponse mapResponse = new PositionsMapResponse(positionsInBounds, List.of());
-                LOGGER.info("API /positions map-view: userId={} bounds=[{},{},{},{}] zoom={} (no cluster) -> {} positions",
-                        userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(), effectiveZoom, positionsInBounds.size());
+                LOGGER.info(
+                        "API /positions map-view: userId={} bounds=[{},{},{},{}] zoom={} (no cluster) -> {} positions",
+                        userId,
+                        expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(),
+                        effectiveZoom, positionsInBounds.size());
                 return Response.ok(mapResponse).build();
             }
             double epsMeters = epsMetersForMap(effectiveZoom);
-            List<MapCellRow> cells = storage.getMapCellsInBoundsDistance(userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(), epsMeters);
-            LOGGER.info("API/positions map-view: userId={} bounds=[{},{},{},{}] zoom={} -> {} cells from DB",
-                    userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(), effectiveZoom, cells.size());
+            List<MapCellRow> cells = storage.getMapCellsInBoundsDistance(
+                    userId,
+                    expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(),
+                    epsMeters);
+            LOGGER.info(
+                    "API/positions map-view: userId={} bounds=[{},{},{},{}] zoom={} -> {} cells from DB",
+                    userId,
+                    expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(),
+                    effectiveZoom, cells.size());
             // Zoom 1–6: clusters only. Zoom 7–15: single points for count=1, clusters for count>1.
             boolean includeSinglePoints = effectiveZoom > MAX_ZOOM_CLUSTERS_ONLY;
             PositionsMapResponse mapResponse = mapCellsToResponse(cells, includeSinglePoints);
@@ -205,7 +222,8 @@ public class PositionResource extends BaseResource {
                 long userId = getUserId();
                 List<Position> cached = devicePositionsCache.get(userId, deviceId, from, to, geofenceId);
                 if (cached != null) {
-                    executorService.submit(() -> revalidateDevicePositionsRange(userId, deviceId, from, to, geofenceId, geofence));
+                    executorService.submit(() -> revalidateDevicePositionsRange(
+                            userId, deviceId, from, to, geofenceId, geofence));
                     return Response.ok(cached).build();
                 }
                 List<Position> positions = loadPositionsRange(deviceId, from, to, geofence);
@@ -219,7 +237,9 @@ public class PositionResource extends BaseResource {
                     return Response.ok(cached).build();
                 }
                 List<Position> positions = loadLatestPositions(deviceId);
-                LOGGER.info("API /positions?deviceId={}: cache miss, loaded from DB ({} positions)", deviceId, positions.size());
+                LOGGER.info(
+                        "API /positions?deviceId={}: cache miss, loaded from DB ({} positions)",
+                        deviceId, positions.size());
                 devicePositionsCache.put(userId, deviceId, positions);
                 return Response.ok(positions).build();
             }
@@ -241,14 +261,14 @@ public class PositionResource extends BaseResource {
     }
 
     private List<Position> loadLatestPositions(long deviceId) throws StorageException {
-        String turbo = permissionsService.getServer().getString("position.turbo", "24 hours");
         try (Stream<Position> stream = storage.getObjectsStream(Position.class, new Request(
-                new Columns.All(), new Condition.LatestPositions(deviceId, 0, turbo)))) {
+                new Columns.All(), new Condition.LatestPositions(deviceId)))) {
             return stream.toList();
         }
     }
 
-    private List<Position> loadPositionsRange(long deviceId, Date from, Date to, Geofence geofence) throws StorageException {
+    private List<Position> loadPositionsRange(long deviceId, Date from, Date to, Geofence geofence)
+            throws StorageException {
         try (Stream<Position> stream = PositionUtil.getPositionsStream(storage, deviceId, from, to)
                 .filter(p -> geofence == null || geofence.containsPosition(p))) {
             return stream.toList();
@@ -264,7 +284,13 @@ public class PositionResource extends BaseResource {
         }
     }
 
-    private void revalidateDevicePositionsRange(long userId, long deviceId, Date from, Date to, long geofenceId, Geofence geofence) {
+    private void revalidateDevicePositionsRange(
+            long userId,
+            long deviceId,
+            Date from,
+            Date to,
+            long geofenceId,
+            Geofence geofence) {
         try {
             List<Position> positions = loadPositionsRange(deviceId, from, to, geofence);
             devicePositionsCache.put(userId, deviceId, from, to, geofenceId, positions);
@@ -339,7 +365,9 @@ public class PositionResource extends BaseResource {
         double maxLat = bounds.getMaxLat();
         double minLon = bounds.getMinLon();
         double maxLon = bounds.getMaxLon();
-        double factor = expandFactor != null ? Math.max(0, Math.min(2, expandFactor)) : DEFAULT_EXPAND_FACTOR;
+        double factor = expandFactor != null
+                ? Math.max(0, Math.min(2, expandFactor))
+                : DEFAULT_EXPAND_FACTOR;
         Bounds expanded = expandBounds(minLat, maxLat, minLon, maxLon, factor);
         // Precomputed cache: band 0 = most zoomed out (500km eps). Use it for fast initial load when available.
         List<MapCellRow> cells = storage.getMapClustersFromCache(
@@ -347,7 +375,10 @@ public class PositionResource extends BaseResource {
         if (cells.isEmpty()) {
             // Cache miss or not populated: fall back to live clustering (zoom 0 → 2000 km eps from table).
             double epsMeters = epsMetersForMap(0);
-            cells = storage.getMapCellsInBoundsDistance(userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(), epsMeters);
+            cells = storage.getMapCellsInBoundsDistance(
+                    userId,
+                    expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(),
+                    epsMeters);
         }
         // Initial load: clusters only (no single positions) so markers group instead of overlap.
         boolean includeSinglePoints = false;
@@ -362,8 +393,11 @@ public class PositionResource extends BaseResource {
         response.setPositions(plot.getPositions());
         response.setClusters(plot.getClusters());
         mapInitialCache.put(userId, response);
-        LOGGER.info("API /positions/map: userId={} -> bounds [{},{},{},{}] zoom={} deviceCount={} positions={} clusters={}",
-                userId, expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(), zoom, response.getDeviceCount(),
+        LOGGER.info(
+                "API /positions/map: userId={} -> bounds [{},{},{},{}] zoom={} deviceCount={} positions={} clusters={}",
+                userId,
+                expanded.minLat(), expanded.maxLat(), expanded.minLon(), expanded.maxLon(),
+                zoom, response.getDeviceCount(),
                 plot.getPositions().size(), plot.getClusters().size());
         return Response.ok(response).build();
     }
@@ -410,7 +444,7 @@ public class PositionResource extends BaseResource {
         StreamingOutput stream = output -> {
             try {
                 kmlExportProvider.generate(output, deviceId, from, to);
-            } catch (StorageException e) {
+            } catch (XMLStreamException | StorageException e) {
                 throw new WebApplicationException(e);
             }
         };
@@ -446,7 +480,7 @@ public class PositionResource extends BaseResource {
         StreamingOutput stream = output -> {
             try {
                 gpxExportProvider.generate(output, deviceId, from, to);
-            } catch (StorageException e) {
+            } catch (XMLStreamException | StorageException e) {
                 throw new WebApplicationException(e);
             }
         };

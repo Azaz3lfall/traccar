@@ -302,10 +302,7 @@ public class SuntechProtocolDecoder extends BaseProtocolDecoder {
                     position.set("fuel2", fuel2);
                 }
             } else if (attribute.startsWith("GTSL")) {
-                String driverUniqueId = attribute.split("\\|")[4].trim();
-                if (!driverUniqueId.isEmpty() && !driverUniqueId.equals("00000000000000")) {
-                    position.set(Position.KEY_DRIVER_UNIQUE_ID, driverUniqueId);
-                }
+                position.set(Position.KEY_DRIVER_UNIQUE_ID, attribute.split("\\|")[4]);
             } else if (attribute.contains("=")) {
                 String[] pair = attribute.split("=");
                 if (pair.length >= 2) {
@@ -323,47 +320,6 @@ public class SuntechProtocolDecoder extends BaseProtocolDecoder {
                         case 'Q' -> position.set("drivingQuality", Integer.parseInt(value, 16));
                     }
                 }
-            } else if (attribute.startsWith("SGBRAS")) {
-                String[] parts = attribute.split("\\|");
-                if (parts.length >= 3) {
-                    position.set("manufacturer", parts[0].trim());
-                    position.set("action", parts[1].trim());
-                    String driverUniqueId = parts[2].trim();
-                    if (!driverUniqueId.isEmpty() && !driverUniqueId.equals("00000000000000")) {
-                        position.set(Position.KEY_DRIVER_UNIQUE_ID, driverUniqueId);
-                    }
-                    if (parts.length >= 4) {
-                        position.set("description", parts[3].trim());
-                    }
-                }
-                position.set("serial", attribute.trim());
-            } else if (attribute.startsWith("TPT")) {
-                String[] parts = attribute.split("\\|");
-                if (parts.length >= 6) {
-                    position.set("manufacturer", parts[0].trim());
-                    position.set("action", parts[4].trim());
-                    String subtype = parts[3].trim();
-                    String action = parts[4].trim();
-                    if (subtype.equals("MC") || subtype.equals("TL")) {
-                        position.set("description", parts[5].trim());
-                    } else if (subtype.equals("IM") || subtype.equals("MI") || subtype.equals("MD")
-                            || action.equals("MD") || action.equals("ML")) {
-                        String driverUniqueId = parts[5].trim();
-                        if (!driverUniqueId.isEmpty() && !driverUniqueId.equals("00000000000000")) {
-                            position.set(Position.KEY_DRIVER_UNIQUE_ID, driverUniqueId);
-                        }
-                    }
-                }
-                position.set("serial", attribute.trim());
-            } else if (attribute.startsWith("SGBT")) {
-                String[] parts = attribute.split("\\|");
-                if (parts.length >= 3) {
-                    String temperature = parts[parts.length == 3 ? 2 : 3].trim();
-                    position.set(Position.PREFIX_TEMP + 1, Double.parseDouble(temperature));
-                    position.set("action", "temperatura");
-                    position.set("description", temperature);
-                }
-                position.set("serial", attribute.trim());
             } else {
                 position.set("serial", attribute.trim());
             }
@@ -486,8 +442,8 @@ public class SuntechProtocolDecoder extends BaseProtocolDecoder {
             }
 
             if (values.length - index >= (hbm == 1 ? 2 : 7)) {
-                String driverUniqueId = values[index++].trim();
-                if (!driverUniqueId.isEmpty() && !driverUniqueId.equals("00000000000000")) {
+                String driverUniqueId = values[index++];
+                if (!driverUniqueId.isEmpty()) {
                     position.set(Position.KEY_DRIVER_UNIQUE_ID, driverUniqueId);
                 }
                 index += 1; // registered
@@ -895,10 +851,7 @@ public class SuntechProtocolDecoder extends BaseProtocolDecoder {
 
         getLastLocation(position, null);
 
-        String driverUniqueId = values[values.length - 1].trim();
-        if (!driverUniqueId.isEmpty() && !driverUniqueId.equals("00000000000000")) {
-            position.set(Position.KEY_DRIVER_UNIQUE_ID, driverUniqueId);
-        }
+        position.set(Position.KEY_DRIVER_UNIQUE_ID, values[values.length - 1]);
 
         return position;
     }

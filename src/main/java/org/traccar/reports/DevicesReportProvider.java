@@ -47,18 +47,15 @@ public class DevicesReportProvider {
     private final Storage storage;
 
     @Inject
-    public DevicesReportProvider(
-            Config config, ReportUtils reportUtils, Storage storage) {
+    public DevicesReportProvider(Config config, ReportUtils reportUtils, Storage storage) {
         this.config = config;
         this.reportUtils = reportUtils;
         this.storage = storage;
     }
 
     public Collection<DeviceReportItem> getObjects(long userId) throws StorageException {
-        org.traccar.model.Server server = storage.getObject(
-                org.traccar.model.Server.class, new Request(new Columns.All()));
-        String turbo = server.getString("position.turbo", "24 hours");
-        var positions = PositionUtil.getLatestPositions(storage, userId, turbo).stream()
+
+        var positions = PositionUtil.getLatestPositions(storage, userId).stream()
                 .collect(Collectors.toMap(Message::getDeviceId, p -> p));
 
         return storage.getObjects(Device.class, new Request(

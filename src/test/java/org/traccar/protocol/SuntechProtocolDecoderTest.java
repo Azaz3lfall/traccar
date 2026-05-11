@@ -2,8 +2,6 @@ package org.traccar.protocol;
 
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import org.traccar.ProtocolTest;
 import org.traccar.model.Position;
 
@@ -310,7 +308,7 @@ public class SuntechProtocolDecoderTest extends ProtocolTest {
 
         verifyAttribute(decoder, buffer(
                 "ST300HTE;511050566;45;308;20200909;13:38:38;0;12.50;001354;0.0;1;0;1;1;0;-27.636632;-052.277933;-27.636675;-052.277947;000.000;002.296;0;00000000000000"),
-                Position.KEY_DRIVER_UNIQUE_ID, null);
+                Position.KEY_DRIVER_UNIQUE_ID, "00000000000000");
 
         verifyAttribute(decoder, buffer(
                 "ST300HTE;100850001;04;248;20110101;00:13:52;167559;12.28;004005;0.0;1;0;3;3;0;-22.881018;-047.070831;-22.881018;-047.070831;000.000;000.000;0;0;3;0;0;0;01E04D44160000"),
@@ -326,85 +324,7 @@ public class SuntechProtocolDecoderTest extends ProtocolTest {
 
         verifyAttribute(decoder, buffer(
                 "ST300STT;007878646;40;319H;20250521;21:52:14;54728;-30.021829;-051.204818;000.000;077.61;0;0;35310247;14.33;000000;1;1306;069596;4.1;1;23675;724;5;-75;1351;1"), 
-                Position.KEY_DRIVER_UNIQUE_ID, null);
-
-    }
-
-    @Test
-    public void testDecodeUexSgbras() throws Exception {
-
-        var decoder = inject(new SuntechProtocolDecoder(null));
-
-        Position position1 = (Position) decoder.decode(null, null, buffer(
-                "UEX;1610013899;FFF83F;161;3.0.7;1;20260108;12:54:36;-15.881590;-48.019793;0.07;349.11;20;1;00000001;00000000;23;SGBRAS|MATRICULA|1111\r\n;37;;"));
-        assertNotNull(position1);
-        assertEquals("1111", position1.getAttributes().get(Position.KEY_DRIVER_UNIQUE_ID));
-        assertEquals("SGBRAS", position1.getAttributes().get("manufacturer"));
-        assertEquals("MATRICULA", position1.getAttributes().get("action"));
-
-        Position position2 = (Position) decoder.decode(null, null, buffer(
-                "UEX;1610013899;FFF83F;161;3.0.7;1;20260108;12:54:44;-15.881590;-48.019793;0.11;349.11;21;1;00000001;00000000;38;SGBRAS|ATALHO|1111|Inicio da Jornada\r\n;E9;;"));
-        assertNotNull(position2);
-        assertEquals("1111", position2.getAttributes().get(Position.KEY_DRIVER_UNIQUE_ID));
-        assertEquals("SGBRAS", position2.getAttributes().get("manufacturer"));
-        assertEquals("ATALHO", position2.getAttributes().get("action"));
-        assertEquals("Inicio da Jornada", position2.getAttributes().get("description"));
-
-    }
-
-    @Test
-    public void testDecodeUexTpt() throws Exception {
-
-        var decoder = inject(new SuntechProtocolDecoder(null));
-
-        Position position1 = (Position) decoder.decode(null, null, buffer(
-                "ST300UEX;807883928;45;319;20260113;21:18:45;7a911;-15.879165;-048.019877;000.833;108.26;6;1;0;12.25;000000;26;TPT|00046|01|IM|MD|111101\r;18;000440;0.0;1;00000000000000;0"));
-        assertNotNull(position1);
-        assertEquals("111101", position1.getAttributes().get(Position.KEY_DRIVER_UNIQUE_ID));
-        assertEquals("TPT", position1.getAttributes().get("manufacturer"));
-        assertEquals("MD", position1.getAttributes().get("action"));
-
-        Position position2 = (Position) decoder.decode(null, null, buffer(
-                "ST300UEX;807883928;45;319;20260113;21:18:45;7a911;-15.879165;-048.019877;000.833;108.26;6;1;0;12.25;000000;44;TPT|00046|01|MC|Operacionais|Parada para pesagem\r;18;000440;0.0;1;00000000000000;0"));
-        assertNotNull(position2);
-        assertEquals("TPT", position2.getAttributes().get("manufacturer"));
-        assertEquals("Operacionais", position2.getAttributes().get("action"));
-        assertEquals("Parada para pesagem", position2.getAttributes().get("description"));
-
-        Position position3 = (Position) decoder.decode(null, null, buffer(
-                "ST300UEX;807883928;45;319;20260113;21:18:45;7a911;-15.879165;-048.019877;000.833;108.26;6;1;0;12.25;000000;26;TPT|00046|01|IM|ML|3AACD329\r;18;000440;0.0;1;00000000000000;0"));
-        assertNotNull(position3);
-        assertEquals("3AACD329", position3.getAttributes().get(Position.KEY_DRIVER_UNIQUE_ID));
-
-        Position position4 = (Position) decoder.decode(null, null, buffer(
-                "ST300UEX;807883928;45;319;20260113;21:18:45;7a911;-15.879165;-048.019877;000.833;108.26;6;1;0;12.25;000000;21;TPT|00046|01|TL|0|teste\r;18;000440;0.0;1;00000000000000;0"));
-        assertNotNull(position4);
-        assertEquals("teste", position4.getAttributes().get("description"));
-
-        Position position5 = (Position) decoder.decode(null, null, buffer(
-                "ST300UEX;807883928;45;319;20260113;21:18:45;7a911;-15.879165;-048.019877;000.833;108.26;6;1;0;12.25;000000;26;TPT|00046|01|IM|ML|00000000000000\r;18;000440;0.0;1;00000000000000;0"));
-        assertNotNull(position5);
-        assertEquals(null, position5.getAttributes().get(Position.KEY_DRIVER_UNIQUE_ID));
-
-    }
-
-    @Test
-    public void testDecodeUexSgbt() throws Exception {
-
-        var decoder = inject(new SuntechProtocolDecoder(null));
-
-        Position position = (Position) decoder.decode(null, null, buffer(
-                "ST300UEX;807883476;45;319;20260120;19:10:22;7a911;-15.878868;-048.020137;000.000;308.05;11;1;0;12.25;100000;23;SGBT|1|00|24.94|0.00|\r\n;03;000696;0.0;1;00000000000000;0\r"));
-        assertNotNull(position);
-        assertEquals(24.94, (Double) position.getAttributes().get(Position.PREFIX_TEMP + 1), 0.01);
-        assertEquals("SGBT|1|00|24.94|0.00|", position.getAttributes().get("serial"));
-
-        Position position2 = (Position) decoder.decode(null, null, buffer(
-                "ST300UEX;807883928;45;319;20260121;18:34:21;7a911;-15.878885;-048.020197;003.093;117.16;8;1;1547;12.25;100000;24;SGBT|TEMPERATURA|34.45\r\n;87\r"));
-        assertNotNull(position2);
-        assertEquals(34.45, (Double) position2.getAttributes().get(Position.PREFIX_TEMP + 1), 0.01);
-        assertEquals("temperatura", position2.getAttributes().get("action"));
-        assertEquals("34.45", position2.getAttributes().get("description"));
+                Position.KEY_DRIVER_UNIQUE_ID, null);      
 
     }
 

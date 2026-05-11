@@ -49,7 +49,9 @@ public class DevicePositionsCache {
 
     private List<Position> getEntry(String k) {
         Entry entry = cache.get(k);
-        if (entry == null) return null;
+        if (entry == null) {
+            return null;
+        }
         long now = System.currentTimeMillis();
         if (entry.isExpired(now)) {
             cache.remove(k, entry);
