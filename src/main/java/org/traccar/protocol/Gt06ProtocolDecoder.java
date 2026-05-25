@@ -55,6 +55,7 @@ public class Gt06ProtocolDecoder extends BaseProtocolDecoder {
     }
 
     public static final int MSG_LOGIN = 0x01;
+    public static final int MSG_ONEBLOCK_GPS = 0x02;  // ONEBLOCK G500M/G900M
     public static final int MSG_GPS = 0x10;
     public static final int MSG_GPS_LBS_6 = 0x11;
     public static final int MSG_GPS_LBS_1 = 0x12;
@@ -174,6 +175,7 @@ public class Gt06ProtocolDecoder extends BaseProtocolDecoder {
     private boolean hasGps(int type) {
         switch (type) {
             case MSG_GPS:
+            case MSG_ONEBLOCK_GPS:
             case MSG_GPS_LBS_1:
             case MSG_GPS_LBS_2:
             case MSG_GPS_LBS_3:
@@ -201,6 +203,7 @@ public class Gt06ProtocolDecoder extends BaseProtocolDecoder {
     private boolean hasLbs(int type) {
         switch (type) {
             case MSG_LBS_STATUS:
+            case MSG_ONEBLOCK_GPS:
             case MSG_GPS_LBS_1:
             case MSG_GPS_LBS_2:
             case MSG_GPS_LBS_3:
@@ -1584,6 +1587,8 @@ public class Gt06ProtocolDecoder extends BaseProtocolDecoder {
             variant = Variant.RFID;
         } else if (header == 0x7878 && type == MSG_GPS_LBS_STATUS_5 && length == 0x40) {
             variant = Variant.LW4G;
+        } else if (header == 0x7878 && type == MSG_ONEBLOCK_GPS) {
+            variant = Variant.STANDARD;
         } else {
             variant = Variant.STANDARD;
         }
