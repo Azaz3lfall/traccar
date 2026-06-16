@@ -1612,6 +1612,46 @@ public final class Keys {
             List.of(KeyType.CONFIG, KeyType.DEVICE));
 
     /**
+     * Enable the ignition-off speed filter. When a position from one of the configured protocols
+     * reports ignition explicitly false and a non-zero speed, the handler clamps the speed to zero
+     * (treating it as GPS drift) or discards the position (when the speed exceeds the drift
+     * threshold). Can be enabled globally or as a device attribute.
+     */
+    public static final ConfigKey<Boolean> FILTER_IGNITION_ENABLE = new BooleanConfigKey(
+            "filter.ignition.enable",
+            List.of(KeyType.CONFIG, KeyType.DEVICE));
+
+    /**
+     * Comma-separated list of protocols that the ignition-off speed filter applies to.
+     * Defaults to "gt06,osmand". Match is case-insensitive.
+     */
+    public static final ConfigKey<String> FILTER_IGNITION_PROTOCOLS = new StringConfigKey(
+            "filter.ignition.protocols",
+            List.of(KeyType.CONFIG),
+            "gt06,osmand");
+
+    /**
+     * Drift threshold (km/h) for the ignition-off speed filter. Positions with ignition=false
+     * and speed in (0, threshold] have their speed clamped to 0; positions with speed > threshold
+     * are discarded as noise. Defaults to 20.
+     */
+    public static final ConfigKey<Integer> FILTER_IGNITION_DRIFT_THRESHOLD = new IntegerConfigKey(
+            "filter.ignition.driftThreshold",
+            List.of(KeyType.CONFIG, KeyType.DEVICE),
+            20);
+
+    /**
+     * Clamp stale "frozen GPS" speed on event positions kept at the exact same coordinate as the
+     * previous one (computed distance == 0) — typically a door/alarm event re-using the last known
+     * fix on a parked vehicle (GT06 0x26), which bypasses filter.distance via skipAttributes but
+     * inherits a non-zero speed from the last real fix. The handler sets speed and motion to zero,
+     * keeping the position and its alarm intact. Can be enabled globally or as a device attribute.
+     */
+    public static final ConfigKey<Boolean> FILTER_STATIC_EVENT_SPEED = new BooleanConfigKey(
+            "filter.staticEventSpeed",
+            List.of(KeyType.CONFIG, KeyType.DEVICE));
+
+    /**
      * Filter records by distance. The value is specified in meters. If the new position is closer than this value to
      * the last one, it gets filtered out.
      */

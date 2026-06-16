@@ -163,6 +163,27 @@ public class FilterHandler extends BasePositionHandler {
         return false;
     }
 
+    /**
+     * Custom (Autoram): true when a boolean attribute appears for the first time or flips value
+     * relative to the last stored position. Used to punch the distance filter on the TRANSITION
+     * only (e.g. ignition/door of a parked vehicle at distance 0), keeping anti-freeze protection
+     * intact — once the transition is stored, it becomes "last" so repeats are filtered again.
+     */
+    private boolean booleanAttributeChanged(Position position, Position last, String key) {
+        if (last != null && position.hasAttribute(key)) {
+            return !last.hasAttribute(key) || position.getBoolean(key) != last.getBoolean(key);
+        }
+        return false;
+    }
+
+    private boolean ignitionChanged(Position position, Position last) {
+        return booleanAttributeChanged(position, last, "ignition");
+    }
+
+    private boolean doorChanged(Position position, Position last) {
+        return booleanAttributeChanged(position, last, "door");
+    }
+
     protected boolean filter(Position position) {
 
         List<String> filterTypes = new LinkedList<>();
@@ -199,7 +220,8 @@ public class FilterHandler extends BasePositionHandler {
         if (filterStatic(position) && !skipLimit(position, last) && !skipAttributes(position)) {
             filterTypes.add("Static");
         }
-        if (filterDistance(position, last) && !skipLimit(position, last) && !skipAttributes(position)) {
+        if (filterDistance(position, last) && !skipLimit(position, last) && !skipAttributes(position)
+                && !ignitionChanged(position, last) && !doorChanged(position, last)) {
             filterTypes.add("Distance");
         }
         if (filterMaxSpeed(position, last)) {

@@ -36,11 +36,13 @@ import org.traccar.handler.GeocoderHandler;
 import org.traccar.handler.GeofenceHandler;
 import org.traccar.handler.GeolocationHandler;
 import org.traccar.handler.HemisphereHandler;
+import org.traccar.handler.IgnitionSpeedFilterHandler;
 import org.traccar.handler.MotionHandler;
 import org.traccar.handler.OutdatedHandler;
 import org.traccar.handler.PositionForwardingHandler;
 import org.traccar.handler.PostProcessHandler;
 import org.traccar.handler.SpeedLimitHandler;
+import org.traccar.handler.StaticEventSpeedHandler;
 import org.traccar.handler.TimeHandler;
 import org.traccar.handler.events.AlarmEventHandler;
 import org.traccar.handler.events.BaseEventHandler;
@@ -102,7 +104,9 @@ public class ProcessingHandler extends ChannelInboundHandlerAdapter implements B
                 GeolocationHandler.class,
                 HemisphereHandler.class,
                 DistanceHandler.class,
+                IgnitionSpeedFilterHandler.class,
                 FilterHandler.class,
+                StaticEventSpeedHandler.class,
                 GeofenceHandler.class,
                 GeocoderHandler.class,
                 SpeedLimitHandler.class,
