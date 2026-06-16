@@ -77,7 +77,7 @@ public class Gt06ProtocolEncoder extends BaseProtocolEncoder {
 
         switch (command.getType()) {
             case Command.TYPE_ENGINE_STOP:
-                if ("G109".equals(model)) {
+                if ("G109".equals(model) || "J16+".equals(model)) {
                     return encodeContent(command.getDeviceId(), "DYD#");
                 } else if (alternative) {
                     return encodeContent(command.getDeviceId(), "DYD," + password + "#");
@@ -85,7 +85,7 @@ public class Gt06ProtocolEncoder extends BaseProtocolEncoder {
                     return encodeContent(command.getDeviceId(), "Relay,1#");
                 }
             case Command.TYPE_ENGINE_RESUME:
-                if ("G109".equals(model)) {
+                if ("G109".equals(model) || "J16+".equals(model)) {
                     return encodeContent(command.getDeviceId(), "HFYD#");
                 } else if (alternative) {
                     return encodeContent(command.getDeviceId(), "HFYD," + password + "#");
