@@ -854,6 +854,14 @@ public final class Keys {
             "./media");
 
     /**
+     * Path to the ffmpeg binary used to remux downloaded recordings for web playback (moov atom moved
+     * to the front, i.e. faststart). If unset or the binary is missing, recordings are served as-is.
+     */
+    public static final ConfigKey<String> MEDIA_FFMPEG_PATH = new StringConfigKey(
+            "media.ffmpegPath",
+            List.of(KeyType.CONFIG));
+
+    /**
      * Optional parameter to specify a network interface for the web interface to bind to. By default, the server will
      * bind to all available interfaces.
      */

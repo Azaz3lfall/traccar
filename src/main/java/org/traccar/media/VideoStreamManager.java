@@ -24,6 +24,7 @@ import jakarta.inject.Singleton;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Singleton
@@ -35,8 +36,27 @@ public class VideoStreamManager {
 
     private final Map<Long, List<Recording>> recordings = new ConcurrentHashMap<>();
 
+    private final Set<String> activeDownloads = ConcurrentHashMap.newKeySet();
+
     @Inject
     public VideoStreamManager() {
+    }
+
+    /**
+     * Claims a download slot for the given key. Returns {@code true} if the caller should start the
+     * download, or {@code false} if one is already in progress for that key. Callers must invoke
+     * {@link #finishDownload(String)} when done.
+     */
+    public boolean tryStartDownload(String key) {
+        return activeDownloads.add(key);
+    }
+
+    public void finishDownload(String key) {
+        activeDownloads.remove(key);
+    }
+
+    public boolean isDownloading(String key) {
+        return activeDownloads.contains(key);
     }
 
     /**
