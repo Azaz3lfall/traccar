@@ -19,6 +19,8 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traccar.BaseProtocolDecoder;
 import org.traccar.helper.BufferUtil;
 import org.traccar.model.WifiAccessPoint;
@@ -31,15 +33,18 @@ import org.traccar.helper.Checksum;
 import org.traccar.helper.DataConverter;
 import org.traccar.helper.DateBuilder;
 import org.traccar.helper.UnitsConverter;
+import org.traccar.media.VideoStreamManager;
 import org.traccar.model.CellTower;
 import org.traccar.model.Network;
 import org.traccar.model.Position;
 
+import jakarta.inject.Inject;
 import java.net.SocketAddress;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.LinkedList;
@@ -49,8 +54,15 @@ import java.util.TimeZone;
 
 public class Jt808ProtocolDecoder extends BaseProtocolDecoder {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(Jt808ProtocolDecoder.class);
+
     public Jt808ProtocolDecoder(Protocol protocol) {
         super(protocol);
+    }
+
+    @Inject
+    public void setVideoStreamManager(VideoStreamManager videoStreamManager) {
+        this.videoStreamManager = videoStreamManager;
     }
 
     public static final int MSG_TERMINAL_GENERAL_RESPONSE = 0x0001;
@@ -82,10 +94,21 @@ public class Jt808ProtocolDecoder extends BaseProtocolDecoder {
     public static final int MSG_DRIVER_IDENTITY = 0x0702;
     public static final int MSG_VIDEO_REQUEST = 0x9101;
     public static final int MSG_VIDEO_CONTROL = 0x9102;
+    public static final int MSG_VIDEO_PLAYBACK = 0x9201;
+    public static final int MSG_VIDEO_PLAYBACK_CONTROL = 0x9202;
+    public static final int MSG_VIDEO_RESOURCE_QUERY = 0x9205;
+    public static final int MSG_VIDEO_RESOURCE_LIST = 0x1205;
+    public static final int MSG_VIDEO_FILE_UPLOAD = 0x9206;
+    public static final int MSG_VIDEO_UPLOAD_NOTIFICATION = 0x1206;
 
     public static final int RESULT_SUCCESS = 0;
 
     private int delimiter = 0x7e;
+
+    private VideoStreamManager videoStreamManager;
+
+    private ByteBuf resourceListBuffer;
+    private int resourceListTotal;
 
     public boolean isAlternative() {
         return delimiter == 0xe7;
@@ -464,9 +487,71 @@ public class Jt808ProtocolDecoder extends BaseProtocolDecoder {
 
             return position;
 
+        } else if (type == MSG_VIDEO_RESOURCE_LIST) {
+
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+
+            // The recording list can be split across several sub-packages (attribute bit 13).
+            // Each sub-package arrives as its own frame, so we accumulate the raw bodies and
+            // parse once the final sub-package is received.
+            if (BitUtil.check(attribute, 13)) {
+                int total = buf.readUnsignedShort();
+                int sequence = buf.readUnsignedShort();
+                if (sequence <= 1 || resourceListBuffer == null) {
+                    if (resourceListBuffer != null) {
+                        resourceListBuffer.release();
+                    }
+                    resourceListBuffer = Unpooled.buffer();
+                    resourceListTotal = total;
+                }
+                resourceListBuffer.writeBytes(buf, buf.readableBytes() - 2); // strip checksum + delimiter
+                if (sequence >= resourceListTotal) {
+                    decodeResourceList(deviceSession.getDeviceId(), resourceListBuffer);
+                    resourceListBuffer.release();
+                    resourceListBuffer = null;
+                }
+            } else {
+                ByteBuf body = buf.readSlice(buf.readableBytes() - 2);
+                decodeResourceList(deviceSession.getDeviceId(), body);
+            }
+
+        } else if (type == MSG_VIDEO_UPLOAD_NOTIFICATION) {
+
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+
+            if (buf.readableBytes() >= 3) {
+                int uploadSerial = buf.readUnsignedShort();
+                int result = buf.readUnsignedByte();
+                LOGGER.info(
+                        "JT1078 file upload notification from {}: serial={}, result={}",
+                        deviceSession.getDeviceId(), uploadSerial, result);
+            }
+
         }
 
         return null;
+    }
+
+    private void decodeResourceList(long deviceId, ByteBuf buf) {
+        if (videoStreamManager == null || buf.readableBytes() < 6) {
+            return;
+        }
+        buf.readUnsignedShort(); // response serial
+        long count = buf.readUnsignedInt();
+        List<VideoStreamManager.Recording> recordings = new ArrayList<>();
+        for (long i = 0; i < count && buf.readableBytes() >= 28; i++) {
+            int channel = buf.readUnsignedByte();
+            String startTime = ByteBufUtil.hexDump(buf.readSlice(6));
+            String endTime = ByteBufUtil.hexDump(buf.readSlice(6));
+            long alarm = buf.readLong();
+            int mediaType = buf.readUnsignedByte();
+            int streamType = buf.readUnsignedByte();
+            int storageType = buf.readUnsignedByte();
+            long fileSize = buf.readUnsignedInt();
+            recordings.add(new VideoStreamManager.Recording(
+                    channel, startTime, endTime, alarm, mediaType, streamType, storageType, fileSize));
+        }
+        videoStreamManager.setRecordings(deviceId, recordings);
     }
 
     private Position decodeResult(Channel channel, SocketAddress remoteAddress, String sentence) {

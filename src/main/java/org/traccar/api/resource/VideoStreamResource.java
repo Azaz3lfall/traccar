@@ -46,6 +46,13 @@ public class VideoStreamResource extends BaseResource {
     }
 
     @GET
+    @Path("{deviceId}/recordings")
+    public Response recordings(@PathParam("deviceId") long deviceId) throws StorageException {
+        permissionsService.checkPermission(Device.class, getUserId(), deviceId);
+        return Response.ok(streamManager.getRecordings(deviceId)).build();
+    }
+
+    @GET
     @Path("{deviceId}/{index}.ts")
     public Response segment(
             @PathParam("deviceId") long deviceId,

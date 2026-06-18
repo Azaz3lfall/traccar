@@ -22,6 +22,7 @@ import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -32,8 +33,28 @@ public class VideoStreamManager {
 
     private final Map<String, DeviceStream> streams = new ConcurrentHashMap<>();
 
+    private final Map<Long, List<Recording>> recordings = new ConcurrentHashMap<>();
+
     @Inject
     public VideoStreamManager() {
+    }
+
+    /**
+     * One recorded segment stored on the device (e.g. SD card). Times are kept as the raw
+     * 12-character BCD strings ({@code yyMMddHHmmss}) reported by the device, so they can be
+     * sent straight back in a playback request without any timezone conversion.
+     */
+    public record Recording(
+            int channel, String startTime, String endTime, long alarm,
+            int mediaType, int streamType, int storageType, long fileSize) {
+    }
+
+    public void setRecordings(long deviceId, List<Recording> list) {
+        recordings.put(deviceId, list);
+    }
+
+    public List<Recording> getRecordings(long deviceId) {
+        return recordings.getOrDefault(deviceId, List.of());
     }
 
     public void handleFrame(

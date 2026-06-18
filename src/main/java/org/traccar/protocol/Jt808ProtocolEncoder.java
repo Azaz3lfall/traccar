@@ -134,6 +134,78 @@ public class Jt808ProtocolEncoder extends BaseProtocolEncoder {
                     data.writeByte(0); // main stream
                     return Jt808ProtocolDecoder.formatMessage(
                             0x7e, Jt808ProtocolDecoder.MSG_VIDEO_CONTROL, id, false, data);
+                case Command.TYPE_VIDEO_PLAYBACK_LIST:
+                    // 0x9205 - query the recordings stored on the device (SD card)
+                    data.writeByte(command.getInteger(Command.KEY_INDEX, 0)); // logical channel (0 = all)
+                    data.writeBytes(DataConverter.parseHex(command.getString(Command.KEY_START_TIME))); // BCD[6]
+                    data.writeBytes(DataConverter.parseHex(command.getString(Command.KEY_END_TIME))); // BCD[6]
+                    data.writeLong(0); // alarm flag (8 bytes), 0 = no filter
+                    data.writeByte(0); // media type, 0 = audio and video
+                    data.writeByte(0); // stream type, 0 = all
+                    data.writeByte(0); // storage type, 0 = all
+                    return Jt808ProtocolDecoder.formatMessage(
+                            0x7e, Jt808ProtocolDecoder.MSG_VIDEO_RESOURCE_QUERY, id, false, data);
+                case Command.TYPE_VIDEO_PLAYBACK:
+                    // 0x9201 - start playback of a recorded segment, streamed to us over jt1078
+                    var playbackConfig = getCacheManager().getConfig();
+                    String playbackHost = URI.create(playbackConfig.getString(Keys.WEB_URL)).getHost();
+                    int playbackPort = playbackConfig.getInteger(
+                            Keys.PROTOCOL_PORT.withPrefix(BaseProtocol.nameFromClass(Jt1078Protocol.class)));
+                    data.writeByte(playbackHost.length());
+                    data.writeCharSequence(playbackHost, StandardCharsets.US_ASCII);
+                    data.writeShort(playbackPort); // tcp port
+                    data.writeShort(0); // udp port
+                    data.writeByte(command.getInteger(Command.KEY_INDEX, 1)); // logical channel
+                    data.writeByte(0); // media type, 0 = audio and video
+                    data.writeByte(1); // stream type, 1 = main stream
+                    data.writeByte(1); // storage type, 1 = main (SD card)
+                    data.writeByte(0); // playback mode, 0 = normal
+                    data.writeByte(0); // playback speed, 0 = invalid (normal speed)
+                    data.writeBytes(DataConverter.parseHex(command.getString(Command.KEY_START_TIME))); // BCD[6]
+                    data.writeBytes(DataConverter.parseHex(command.getString(Command.KEY_END_TIME))); // BCD[6]
+                    return Jt808ProtocolDecoder.formatMessage(
+                            0x7e, Jt808ProtocolDecoder.MSG_VIDEO_PLAYBACK, id, false, data);
+                case Command.TYPE_VIDEO_PLAYBACK_CONTROL:
+                    // 0x9202 - control an active playback (0 = stop, 1 = pause, 2 = resume, 5 = jump to time)
+                    data.writeByte(command.getInteger(Command.KEY_INDEX, 1)); // logical channel
+                    data.writeByte(command.getInteger(Command.KEY_DATA, 0)); // control instruction
+                    data.writeByte(0); // playback speed
+                    String jumpTime = command.getString(Command.KEY_START_TIME);
+                    if (jumpTime != null) {
+                        data.writeBytes(DataConverter.parseHex(jumpTime)); // BCD[6] jump target
+                    } else {
+                        data.writeBytes(new byte[6]);
+                    }
+                    return Jt808ProtocolDecoder.formatMessage(
+                            0x7e, Jt808ProtocolDecoder.MSG_VIDEO_PLAYBACK_CONTROL, id, false, data);
+                case Command.TYPE_VIDEO_FILE_UPLOAD:
+                    // 0x9206 - upload a recorded segment from the SD card to an FTP server
+                    String uploadHost = command.getString(Command.KEY_SERVER);
+                    String uploadUser = command.getString(Command.KEY_USER);
+                    String uploadPassword = command.getString(Command.KEY_PASSWORD);
+                    String uploadPath = command.getString(Command.KEY_PATH);
+                    if (uploadPath == null) {
+                        uploadPath = "/";
+                    }
+                    data.writeByte(uploadHost.length());
+                    data.writeCharSequence(uploadHost, StandardCharsets.US_ASCII);
+                    data.writeShort(command.getInteger(Command.KEY_PORT, 21)); // ftp port
+                    data.writeByte(uploadUser.length());
+                    data.writeCharSequence(uploadUser, StandardCharsets.US_ASCII);
+                    data.writeByte(uploadPassword.length());
+                    data.writeCharSequence(uploadPassword, StandardCharsets.US_ASCII);
+                    data.writeByte(uploadPath.length());
+                    data.writeCharSequence(uploadPath, StandardCharsets.US_ASCII);
+                    data.writeByte(command.getInteger(Command.KEY_INDEX, 1)); // logical channel
+                    data.writeBytes(DataConverter.parseHex(command.getString(Command.KEY_START_TIME))); // BCD[6]
+                    data.writeBytes(DataConverter.parseHex(command.getString(Command.KEY_END_TIME))); // BCD[6]
+                    data.writeLong(0); // alarm flag (8 bytes), 0 = no filter
+                    data.writeByte(0); // media type, 0 = audio and video
+                    data.writeByte(1); // stream type, 1 = main stream
+                    data.writeByte(1); // storage type, 1 = main (SD card)
+                    data.writeByte(0x04); // execution condition bitmask, bit2 = upload over 3G/4G
+                    return Jt808ProtocolDecoder.formatMessage(
+                            0x7e, Jt808ProtocolDecoder.MSG_VIDEO_FILE_UPLOAD, id, false, data);
                 default:
                     return null;
             }
