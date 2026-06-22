@@ -622,12 +622,16 @@ public class Jt808ProtocolDecoder extends BaseProtocolDecoder {
         if ("MV810G".equals(model) || "MV710G".equals(model)) {
             position.set(Position.KEY_DOOR, BitUtil.check(status, 16));
         }
-        if ("JC181".equals(model)) {
+        if ("JC181".equals(model) || "JC400".equals(model)) {
             // JT/T 808 status bit 11 = vehicle electrical circuit (0 = normal/powered, 1 = cut).
             // External power present means the bit is clear, so charge is its inverse. The default
-            // bit 26 below is reserved in the standard and never set by this camera, which made the
+            // bit 26 below is reserved in the standard and never set by these cameras, which made the
             // power ("alimentação") indicator always show disconnected on the card.
             position.set(Position.KEY_CHARGE, !BitUtil.check(status, 11));
+            if ("JC400".equals(model)) {
+                // TEMPORARY: validate the JC400 power bit against the live status word.
+                LOGGER.info("JC400 status word: 0x{}", String.format("%08X", status));
+            }
         } else {
             position.set(Position.KEY_CHARGE, BitUtil.check(status, 26));
         }

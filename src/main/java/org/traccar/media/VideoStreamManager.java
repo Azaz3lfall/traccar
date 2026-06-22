@@ -104,9 +104,12 @@ public class VideoStreamManager {
 
         private final VideoStreamWriter writer = new VideoStreamWriter();
         private final LinkedHashMap<Integer, ByteBuf> segments = new LinkedHashMap<>();
+        private final LinkedHashMap<Integer, Double> durations = new LinkedHashMap<>();
         private ByteBuf currentSegment;
         private int segmentIndex;
         private long firstTimestamp;
+        private long segmentStartTimestamp;
+        private long lastTimestamp;
 
         synchronized void addFrame(ByteBuf nalData, long timestamp, boolean isKeyFrame, int payloadType) {
             if (isKeyFrame && currentSegment != null) {
@@ -118,18 +121,32 @@ public class VideoStreamManager {
                 if (firstTimestamp == 0) {
                     firstTimestamp = timestamp;
                 }
+                segmentStartTimestamp = timestamp;
             }
 
+            lastTimestamp = timestamp;
             writer.write(currentSegment, nalData, timestamp - firstTimestamp, isKeyFrame, payloadType);
         }
 
         private void finalizeSegment() {
-            segments.put(segmentIndex++, currentSegment);
+            // Real segment duration from frame timestamps (ms). A hard-coded EXTINF of 3.0 lied to
+            // the player when GOPs are short (e.g. the V6 main stream keyframes ~0.6s apart), which
+            // broke hls.js live-edge timing and showed "No Video". Clamp bogus values to 3.0.
+            double duration = (lastTimestamp - segmentStartTimestamp) / 1000.0;
+            if (duration <= 0 || duration > 30) {
+                duration = 3.0;
+            }
+            duration = Math.max(0.1, Math.round(duration * 1000.0) / 1000.0);
+
+            segments.put(segmentIndex, currentSegment);
+            durations.put(segmentIndex, duration);
+            segmentIndex++;
             currentSegment = null;
 
             while (segments.size() > MAX_SEGMENTS) {
                 Integer oldest = segments.keySet().iterator().next();
                 segments.remove(oldest).release();
+                durations.remove(oldest);
             }
         }
 
@@ -146,26 +163,30 @@ public class VideoStreamManager {
                 "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:5\n#EXT-X-MEDIA-SEQUENCE:0\n";
 
         synchronized String getPlaylist(int channel) {
-            if (currentSegment != null) {
-                finalizeSegment();
-            }
+            // Only expose segments already closed on a keyframe boundary. Finalizing the in-progress
+            // segment on every poll used to cut mid-GOP, so a segment could start without a keyframe
+            // and fail to decode (worse on short-GOP live streams).
             if (segments.isEmpty()) {
                 return EMPTY_PLAYLIST;
             }
 
             int firstIndex = segments.keySet().iterator().next();
 
+            double maxDuration = durations.values().stream().mapToDouble(Double::doubleValue).max().orElse(3.0);
+            int targetDuration = Math.max(1, (int) Math.ceil(maxDuration));
+
             StringBuilder sb = new StringBuilder();
             sb.append("#EXTM3U\n");
             sb.append("#EXT-X-VERSION:3\n");
-            sb.append("#EXT-X-TARGETDURATION:5\n");
+            sb.append("#EXT-X-TARGETDURATION:").append(targetDuration).append("\n");
             sb.append("#EXT-X-MEDIA-SEQUENCE:").append(firstIndex).append("\n");
 
             for (int key : segments.keySet()) {
-                sb.append("#EXTINF:3.0,\n");
-                // Carry the channel on each segment URL: relative-URL resolution in the player
-                // drops the playlist's query string, so without this the .ts requests would fall
-                // back to the default channel (1) and channel 2+ would never play.
+                // Real per-segment duration (see finalizeSegment). Carry the channel on each segment
+                // URL too: relative-URL resolution in the player drops the playlist's query string,
+                // so without it the .ts requests fall back to the default channel and channel 2+
+                // would never play.
+                sb.append("#EXTINF:").append(durations.getOrDefault(key, 3.0)).append(",\n");
                 sb.append(key).append(".ts?channel=").append(channel).append("\n");
             }
 
