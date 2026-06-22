@@ -85,7 +85,7 @@ public class VideoStreamManager {
 
     public String getPlaylist(long deviceId, int channel) {
         DeviceStream stream = streams.get(deviceId + "_" + channel);
-        return stream != null ? stream.getPlaylist() : DeviceStream.EMPTY_PLAYLIST;
+        return stream != null ? stream.getPlaylist(channel) : DeviceStream.EMPTY_PLAYLIST;
     }
 
     public void removeStream(long deviceId, int channel) {
@@ -145,7 +145,7 @@ public class VideoStreamManager {
         static final String EMPTY_PLAYLIST =
                 "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:5\n#EXT-X-MEDIA-SEQUENCE:0\n";
 
-        synchronized String getPlaylist() {
+        synchronized String getPlaylist(int channel) {
             if (currentSegment != null) {
                 finalizeSegment();
             }
@@ -163,7 +163,10 @@ public class VideoStreamManager {
 
             for (int key : segments.keySet()) {
                 sb.append("#EXTINF:3.0,\n");
-                sb.append(key).append(".ts\n");
+                // Carry the channel on each segment URL: relative-URL resolution in the player
+                // drops the playlist's query string, so without this the .ts requests would fall
+                // back to the default channel (1) and channel 2+ would never play.
+                sb.append(key).append(".ts?channel=").append(channel).append("\n");
             }
 
             return sb.toString();
