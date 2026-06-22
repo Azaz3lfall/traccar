@@ -184,6 +184,10 @@ public class FilterHandler extends BasePositionHandler {
         return booleanAttributeChanged(position, last, "door");
     }
 
+    private boolean chargeChanged(Position position, Position last) {
+        return booleanAttributeChanged(position, last, "charge");
+    }
+
     protected boolean filter(Position position) {
 
         List<String> filterTypes = new LinkedList<>();
@@ -221,7 +225,8 @@ public class FilterHandler extends BasePositionHandler {
             filterTypes.add("Static");
         }
         if (filterDistance(position, last) && !skipLimit(position, last) && !skipAttributes(position)
-                && !ignitionChanged(position, last) && !doorChanged(position, last)) {
+                && !ignitionChanged(position, last) && !doorChanged(position, last)
+                && !chargeChanged(position, last)) {
             filterTypes.add("Distance");
         }
         if (filterMaxSpeed(position, last)) {
