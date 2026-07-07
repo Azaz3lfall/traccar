@@ -209,9 +209,10 @@ public class VideoStreamResource extends BaseResource {
     }
 
     /**
-     * Remux to a web-friendly MP4 (moov atom at the front) with no re-encode, so the browser can
-     * start playback immediately instead of stalling to fetch the index from the end of the file.
-     * Returns {@code false} if ffmpeg is not configured/available or the remux fails.
+     * Remux to a web-friendly MP4 (moov atom at the front) so the browser can start playback
+     * immediately instead of stalling to fetch the index from the end of the file. Video is copied;
+     * audio is transcoded to AAC because device recordings usually carry G.711, which browsers
+     * cannot play. Returns {@code false} if ffmpeg is not configured/available or the remux fails.
      */
     private boolean faststart(File src, File dst) {
         String ffmpeg = config.getString(Keys.MEDIA_FFMPEG_PATH);
@@ -222,7 +223,8 @@ public class VideoStreamResource extends BaseResource {
         try {
             Process process = new ProcessBuilder(
                     ffmpeg, "-y", "-v", "error", "-i", src.getAbsolutePath(),
-                    "-c", "copy", "-movflags", "+faststart", "-f", "mp4", tmp.getAbsolutePath())
+                    "-c:v", "copy", "-c:a", "aac", "-b:a", "32k",
+                    "-movflags", "+faststart", "-f", "mp4", tmp.getAbsolutePath())
                     .redirectErrorStream(true).start();
             byte[] output = process.getInputStream().readAllBytes();
             if (process.waitFor() == 0 && tmp.length() > 0) {

@@ -21,6 +21,12 @@ import io.netty.buffer.Unpooled;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.traccar.config.Config;
+import org.traccar.config.Keys;
+
+import java.io.File;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +36,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @Singleton
 public class VideoStreamManager {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(VideoStreamManager.class);
+
     private static final int MAX_SEGMENTS = 5;
 
     private final Map<String, DeviceStream> streams = new ConcurrentHashMap<>();
@@ -38,8 +46,12 @@ public class VideoStreamManager {
 
     private final Set<String> activeDownloads = ConcurrentHashMap.newKeySet();
 
+    private final String ffmpegPath;
+
     @Inject
-    public VideoStreamManager() {
+    public VideoStreamManager(Config config) {
+        String path = config.getString(Keys.MEDIA_FFMPEG_PATH);
+        ffmpegPath = path != null && new File(path).canExecute() ? path : null;
     }
 
     /**
@@ -83,6 +95,27 @@ public class VideoStreamManager {
         stream.addFrame(nalData, timestamp, isKeyFrame, payloadType);
     }
 
+    /**
+     * JT1078 audio frame (dataType 3). G.711 audio is transcoded to AAC via ffmpeg before muxing,
+     * since browsers cannot decode G.711 inside HLS. Silently ignored when ffmpeg is unavailable
+     * or the payload codec is unsupported (stream stays video-only, as before).
+     */
+    public void handleAudioFrame(long deviceId, int channel, ByteBuf data, long timestamp, int payloadType) {
+        if (ffmpegPath == null) {
+            return;
+        }
+        String inputFormat;
+        switch (payloadType) {
+            case 6 -> inputFormat = "alaw";
+            case 7 -> inputFormat = "mulaw";
+            default -> {
+                return;
+            }
+        }
+        DeviceStream stream = streams.computeIfAbsent(deviceId + "_" + channel, k -> new DeviceStream());
+        stream.addAudio(data, timestamp, inputFormat, ffmpegPath);
+    }
+
     public String getPlaylist(long deviceId, int channel) {
         DeviceStream stream = streams.get(deviceId + "_" + channel);
         return stream != null ? stream.getPlaylist(channel) : DeviceStream.EMPTY_PLAYLIST;
@@ -111,6 +144,11 @@ public class VideoStreamManager {
         private long segmentStartTimestamp;
         private long lastTimestamp;
 
+        private AudioTranscoder transcoder;
+        private boolean transcoderFailed;
+        private long audioBaseTimestamp;
+        private long audioFramesOut;
+
         synchronized void addFrame(ByteBuf nalData, long timestamp, boolean isKeyFrame, int payloadType) {
             if (isKeyFrame && currentSegment != null) {
                 finalizeSegment();
@@ -126,6 +164,50 @@ public class VideoStreamManager {
 
             lastTimestamp = timestamp;
             writer.write(currentSegment, nalData, timestamp - firstTimestamp, isKeyFrame, payloadType);
+            drainAudio();
+        }
+
+        synchronized void addAudio(ByteBuf data, long timestamp, String inputFormat, String ffmpegPath) {
+            if (transcoderFailed) {
+                return;
+            }
+            if (transcoder == null) {
+                try {
+                    transcoder = new AudioTranscoder(ffmpegPath, inputFormat);
+                    audioBaseTimestamp = timestamp;
+                } catch (Exception e) {
+                    LOGGER.warn("Audio transcoder start failed", e);
+                    transcoderFailed = true;
+                    return;
+                }
+            }
+            try {
+                transcoder.feed(data);
+            } catch (Exception e) {
+                LOGGER.warn("Audio transcoder feed failed", e);
+                transcoderFailed = true;
+                transcoder.close();
+                return;
+            }
+            drainAudio();
+        }
+
+        private void drainAudio() {
+            if (transcoder == null) {
+                return;
+            }
+            byte[] frame;
+            while ((frame = transcoder.poll()) != null) {
+                // Each ADTS frame is a fixed number of samples, so its PTS is derived from the
+                // output frame counter anchored at the first audio RTP timestamp. Frames arriving
+                // before the first video keyframe have no segment to land in and are dropped.
+                if (currentSegment != null) {
+                    long ptsMs = audioBaseTimestamp
+                            + audioFramesOut * 1000L * AudioTranscoder.SAMPLES_PER_FRAME / AudioTranscoder.SAMPLE_RATE;
+                    writer.writeAudio(currentSegment, frame, ptsMs - firstTimestamp);
+                }
+                audioFramesOut++;
+            }
         }
 
         private void finalizeSegment() {
@@ -151,6 +233,10 @@ public class VideoStreamManager {
         }
 
         synchronized void release() {
+            if (transcoder != null) {
+                transcoder.close();
+                transcoder = null;
+            }
             if (currentSegment != null) {
                 currentSegment.release();
             }

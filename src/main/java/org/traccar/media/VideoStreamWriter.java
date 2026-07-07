@@ -24,12 +24,16 @@ public class VideoStreamWriter {
     private static final int TS_PACKET_SIZE = 188;
     private static final int PMT_PID = 0x1000;
     private static final int VIDEO_PID = 0x0100;
+    private static final int AUDIO_PID = 0x0101;
     private static final int STREAM_TYPE_H264 = 0x1B;
     private static final int STREAM_TYPE_H265 = 0x24;
+    private static final int STREAM_TYPE_AAC = 0x0F;
 
     private int patContinuityCounter;
     private int pmtContinuityCounter;
     private int videoContinuityCounter;
+    private int audioContinuityCounter;
+    private boolean audioEnabled;
 
     public void write(ByteBuf output, ByteBuf nalData, long pts, boolean isKeyFrame, int payloadType) {
         boolean isH265 = payloadType == 99;
@@ -40,8 +44,26 @@ public class VideoStreamWriter {
 
         long pts90k = pts * 90;
         ByteBuf pesPacket = createPes(nalData, pts90k, isH265);
-        writePesPackets(output, pesPacket, isKeyFrame, pts90k);
+        writePesPackets(output, pesPacket, VIDEO_PID, isKeyFrame, pts90k);
         pesPacket.release();
+    }
+
+    public void writeAudio(ByteBuf output, byte[] adtsFrame, long pts) {
+        audioEnabled = true;
+
+        long pts90k = pts * 90;
+        ByteBuf pes = Unpooled.buffer();
+        pes.writeMedium(0x000001); // start code prefix
+        pes.writeByte(0xC0); // stream id (audio)
+        pes.writeShort(adtsFrame.length + 8); // 3 (flags) + 5 (PTS)
+        pes.writeByte(0x80); // marker bits
+        pes.writeByte(0x80); // PTS only
+        pes.writeByte(0x05); // PES header data length
+        writePts(pes, pts90k);
+        pes.writeBytes(adtsFrame);
+
+        writePesPackets(output, pes, AUDIO_PID, false, pts90k);
+        pes.release();
     }
 
     private void writePat(ByteBuf output) {
@@ -92,7 +114,7 @@ public class VideoStreamWriter {
         // PMT table
         int tableStart = output.writerIndex();
         output.writeByte(0x02); // table id
-        output.writeShort(0xB012); // section syntax indicator + section length (18)
+        output.writeShort(0xB000 | (audioEnabled ? 23 : 18)); // section syntax indicator + section length
         output.writeShort(0x0001); // program number
         output.writeByte(0xC1); // reserved + version 0 + current
         output.writeByte(0x00); // section number
@@ -104,6 +126,12 @@ public class VideoStreamWriter {
         output.writeByte(isH265 ? STREAM_TYPE_H265 : STREAM_TYPE_H264);
         output.writeShort(0xE000 | VIDEO_PID);
         output.writeShort(0xF000); // reserved + ES info length (0)
+
+        if (audioEnabled) {
+            output.writeByte(STREAM_TYPE_AAC);
+            output.writeShort(0xE000 | AUDIO_PID);
+            output.writeShort(0xF000); // reserved + ES info length (0)
+        }
 
         // CRC32
         output.writeInt(Checksum.crc32(
@@ -135,13 +163,7 @@ public class VideoStreamWriter {
         pes.writeByte(0x80); // marker bits
         pes.writeByte(0x80); // PTS only
         pes.writeByte(0x05); // PES header data length
-
-        // PTS encoding (5 bytes)
-        pes.writeByte(0x21 | (int) ((pts90k >> 29) & 0x0E));
-        pes.writeByte((int) (pts90k >> 22));
-        pes.writeByte(0x01 | (int) ((pts90k >> 14) & 0xFE));
-        pes.writeByte((int) (pts90k >> 7));
-        pes.writeByte(0x01 | (int) ((pts90k << 1) & 0xFE));
+        writePts(pes, pts90k);
 
         // access unit delimiter NAL
         pes.writeInt(0x00000001); // start code
@@ -159,7 +181,24 @@ public class VideoStreamWriter {
         return pes;
     }
 
-    private void writePesPackets(ByteBuf output, ByteBuf pesData, boolean isKeyFrame, long pts90k) {
+    private void writePts(ByteBuf pes, long pts90k) {
+        // PTS encoding (5 bytes)
+        pes.writeByte(0x21 | (int) ((pts90k >> 29) & 0x0E));
+        pes.writeByte((int) (pts90k >> 22));
+        pes.writeByte(0x01 | (int) ((pts90k >> 14) & 0xFE));
+        pes.writeByte((int) (pts90k >> 7));
+        pes.writeByte(0x01 | (int) ((pts90k << 1) & 0xFE));
+    }
+
+    private int nextContinuityCounter(int pid) {
+        if (pid == AUDIO_PID) {
+            return audioContinuityCounter++ & 0x0F;
+        } else {
+            return videoContinuityCounter++ & 0x0F;
+        }
+    }
+
+    private void writePesPackets(ByteBuf output, ByteBuf pesData, int pid, boolean isKeyFrame, long pts90k) {
         int offset = 0;
         boolean first = true;
         int pesLength = pesData.readableBytes();
@@ -171,7 +210,7 @@ public class VideoStreamWriter {
             output.writeByte(0x47);
 
             // PID with payload unit start flag
-            int pidFlags = VIDEO_PID;
+            int pidFlags = pid;
             if (first) {
                 pidFlags |= 0x4000; // payload unit start
             }
@@ -181,7 +220,7 @@ public class VideoStreamWriter {
 
             if (first && isKeyFrame) {
                 // adaptation field with PCR and random access indicator
-                output.writeByte(0x30 | (videoContinuityCounter++ & 0x0F)); // adaptation + payload
+                output.writeByte(0x30 | nextContinuityCounter(pid)); // adaptation + payload
                 output.writeByte(0x07); // adaptation field length
                 output.writeByte(0x50); // random access indicator + PCR flag
                 // PCR base (33 bits) + reserved (6) + extension (9)
@@ -198,7 +237,7 @@ public class VideoStreamWriter {
                 if (remaining < available) {
                     // need stuffing via adaptation field
                     int stuffingLength = available - remaining;
-                    output.writeByte(0x30 | (videoContinuityCounter++ & 0x0F));
+                    output.writeByte(0x30 | nextContinuityCounter(pid));
                     if (stuffingLength == 1) {
                         output.writeByte(0x00);
                         headerSize += 1;
@@ -211,7 +250,7 @@ public class VideoStreamWriter {
                         headerSize += stuffingLength;
                     }
                 } else {
-                    output.writeByte(0x10 | (videoContinuityCounter++ & 0x0F)); // payload only
+                    output.writeByte(0x10 | nextContinuityCounter(pid)); // payload only
                 }
             }
 

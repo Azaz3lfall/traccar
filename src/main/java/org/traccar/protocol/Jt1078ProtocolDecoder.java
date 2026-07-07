@@ -81,7 +81,7 @@ public class Jt1078ProtocolDecoder extends BaseProtocolDecoder {
 
         int bodyLength = buf.readUnsignedShort();
 
-        if (bodyLength == 0 || dataType > 2) {
+        if (bodyLength == 0 || dataType > 3) {
             return null;
         }
 
@@ -94,6 +94,15 @@ public class Jt1078ProtocolDecoder extends BaseProtocolDecoder {
         streamChannel = videoChannel;
 
         ByteBuf body = buf.readRetainedSlice(bodyLength);
+
+        if (dataType == 3) {
+            // audio frame: always atomic in practice; subpackaged audio is not supported
+            if (subpackageType == 0) {
+                streamManager.handleAudioFrame(streamDeviceId, videoChannel, body, timestamp, payloadType);
+            }
+            body.release();
+            return null;
+        }
 
         if (subpackageType == 0) {
             boolean isKeyFrame = dataType == 0;
