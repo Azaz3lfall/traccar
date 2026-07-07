@@ -40,8 +40,11 @@ public class AudioTranscoder {
     private final Queue<byte[]> frames = new ConcurrentLinkedQueue<>();
 
     public AudioTranscoder(String ffmpegPath, String inputFormat) throws IOException {
+        // probing disabled: with the defaults ffmpeg holds all output until the input probe
+        // buffer fills (minutes at G.711 bitrate), so no audio would reach the live stream
         process = new ProcessBuilder(
                 ffmpegPath, "-v", "quiet",
+                "-probesize", "32", "-analyzeduration", "0", "-fflags", "nobuffer",
                 "-f", inputFormat, "-ar", String.valueOf(SAMPLE_RATE), "-ac", "1", "-i", "pipe:0",
                 "-c:a", "aac", "-b:a", "32k", "-flush_packets", "1", "-f", "adts", "pipe:1")
                 .redirectError(ProcessBuilder.Redirect.DISCARD)

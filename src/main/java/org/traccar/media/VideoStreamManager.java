@@ -146,8 +146,9 @@ public class VideoStreamManager {
 
         private AudioTranscoder transcoder;
         private boolean transcoderFailed;
-        private long audioBaseTimestamp;
-        private long audioFramesOut;
+        private long audioAnchorTimestamp;
+        private long audioFramesSinceAnchor;
+        private long lastAudioInputTimestamp;
 
         synchronized void addFrame(ByteBuf nalData, long timestamp, boolean isKeyFrame, int payloadType) {
             if (isKeyFrame && currentSegment != null) {
@@ -174,13 +175,14 @@ public class VideoStreamManager {
             if (transcoder == null) {
                 try {
                     transcoder = new AudioTranscoder(ffmpegPath, inputFormat);
-                    audioBaseTimestamp = timestamp;
+                    audioAnchorTimestamp = timestamp;
                 } catch (Exception e) {
                     LOGGER.warn("Audio transcoder start failed", e);
                     transcoderFailed = true;
                     return;
                 }
             }
+            lastAudioInputTimestamp = timestamp;
             try {
                 transcoder.feed(data);
             } catch (Exception e) {
@@ -196,17 +198,24 @@ public class VideoStreamManager {
             if (transcoder == null) {
                 return;
             }
+            long frameMs = 1000L * AudioTranscoder.SAMPLES_PER_FRAME / AudioTranscoder.SAMPLE_RATE;
             byte[] frame;
             while ((frame = transcoder.poll()) != null) {
-                // Each ADTS frame is a fixed number of samples, so its PTS is derived from the
-                // output frame counter anchored at the first audio RTP timestamp. Frames arriving
-                // before the first video keyframe have no segment to land in and are dropped.
+                // Each ADTS frame is a fixed number of samples, so its PTS advances by frame count
+                // from an anchor RTP timestamp. Streaming sessions stop and restart (and some
+                // devices reset their clock per session), so whenever the counted PTS drifts away
+                // from the incoming RTP timestamps, re-anchor instead of playing audio out of sync.
+                long ptsMs = audioAnchorTimestamp + audioFramesSinceAnchor * frameMs;
+                if (Math.abs(ptsMs - lastAudioInputTimestamp) > 1000) {
+                    audioAnchorTimestamp = lastAudioInputTimestamp;
+                    audioFramesSinceAnchor = 0;
+                    ptsMs = audioAnchorTimestamp;
+                }
+                // frames arriving before the first video keyframe have no segment to land in
                 if (currentSegment != null) {
-                    long ptsMs = audioBaseTimestamp
-                            + audioFramesOut * 1000L * AudioTranscoder.SAMPLES_PER_FRAME / AudioTranscoder.SAMPLE_RATE;
                     writer.writeAudio(currentSegment, frame, ptsMs - firstTimestamp);
                 }
-                audioFramesOut++;
+                audioFramesSinceAnchor++;
             }
         }
 
