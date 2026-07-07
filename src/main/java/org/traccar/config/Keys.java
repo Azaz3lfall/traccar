@@ -862,6 +862,15 @@ public final class Keys {
             List.of(KeyType.CONFIG));
 
     /**
+     * Host sent to devices in video stream requests (JT808 0x9101/0x9201). Some firmwares do not
+     * resolve domain names, so this should usually be the public IP of the server. If unset, the
+     * host from web.url is used.
+     */
+    public static final ConfigKey<String> MEDIA_HOST = new StringConfigKey(
+            "media.host",
+            List.of(KeyType.CONFIG));
+
+    /**
      * Optional parameter to specify a network interface for the web interface to bind to. By default, the server will
      * bind to all available interfaces.
      */

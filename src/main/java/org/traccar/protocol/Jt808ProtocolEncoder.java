@@ -114,7 +114,8 @@ public class Jt808ProtocolEncoder extends BaseProtocolEncoder {
                     }
                 case Command.TYPE_VIDEO_START:
                     var config = getCacheManager().getConfig();
-                    String host = URI.create(config.getString(Keys.WEB_URL)).getHost();
+                    String host = config.getString(
+                            Keys.MEDIA_HOST, URI.create(config.getString(Keys.WEB_URL)).getHost());
                     int port = config.getInteger(
                             Keys.PROTOCOL_PORT.withPrefix(BaseProtocol.nameFromClass(Jt1078Protocol.class)));
                     int channel = command.getInteger(Command.KEY_INDEX, 1);
@@ -148,7 +149,8 @@ public class Jt808ProtocolEncoder extends BaseProtocolEncoder {
                 case Command.TYPE_VIDEO_PLAYBACK:
                     // 0x9201 - start playback of a recorded segment, streamed to us over jt1078
                     var playbackConfig = getCacheManager().getConfig();
-                    String playbackHost = URI.create(playbackConfig.getString(Keys.WEB_URL)).getHost();
+                    String playbackHost = playbackConfig.getString(
+                            Keys.MEDIA_HOST, URI.create(playbackConfig.getString(Keys.WEB_URL)).getHost());
                     int playbackPort = playbackConfig.getInteger(
                             Keys.PROTOCOL_PORT.withPrefix(BaseProtocol.nameFromClass(Jt1078Protocol.class)));
                     data.writeByte(playbackHost.length());
