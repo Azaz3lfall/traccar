@@ -101,6 +101,12 @@ public class VideoStreamManager {
      * or the payload codec is unsupported (stream stays video-only, as before).
      */
     public void handleAudioFrame(long deviceId, int channel, ByteBuf data, long timestamp, int payloadType) {
+        if (payloadType == 19) {
+            // native AAC (ADTS) — mux directly, no transcoding needed
+            DeviceStream stream = streams.computeIfAbsent(deviceId + "_" + channel, k -> new DeviceStream());
+            stream.addAacAudio(data, timestamp);
+            return;
+        }
         if (ffmpegPath == null) {
             return;
         }
@@ -138,6 +144,7 @@ public class VideoStreamManager {
         private final VideoStreamWriter writer = new VideoStreamWriter();
         private final LinkedHashMap<Integer, ByteBuf> segments = new LinkedHashMap<>();
         private final LinkedHashMap<Integer, Double> durations = new LinkedHashMap<>();
+        private final LinkedHashMap<Integer, Boolean> segmentHasAudio = new LinkedHashMap<>();
         private ByteBuf currentSegment;
         private int segmentIndex;
         private long firstTimestamp;
@@ -166,6 +173,17 @@ public class VideoStreamManager {
             lastTimestamp = timestamp;
             writer.write(currentSegment, nalData, timestamp - firstTimestamp, isKeyFrame, payloadType);
             drainAudio();
+        }
+
+        synchronized void addAacAudio(ByteBuf data, long timestamp) {
+            // payload is already ADTS AAC; only frames sync-marked as ADTS are muxed
+            if (currentSegment != null && data.readableBytes() > 7
+                    && (data.getUnsignedByte(data.readerIndex()) == 0xFF)
+                    && ((data.getUnsignedByte(data.readerIndex() + 1) & 0xF0) == 0xF0)) {
+                byte[] frame = new byte[data.readableBytes()];
+                data.getBytes(data.readerIndex(), frame);
+                writer.writeAudio(currentSegment, frame, timestamp - firstTimestamp);
+            }
         }
 
         synchronized void addAudio(ByteBuf data, long timestamp, String inputFormat, String ffmpegPath) {
@@ -231,6 +249,7 @@ public class VideoStreamManager {
 
             segments.put(segmentIndex, currentSegment);
             durations.put(segmentIndex, duration);
+            segmentHasAudio.put(segmentIndex, writer.isAudioEnabled());
             segmentIndex++;
             currentSegment = null;
 
@@ -238,6 +257,7 @@ public class VideoStreamManager {
                 Integer oldest = segments.keySet().iterator().next();
                 segments.remove(oldest).release();
                 durations.remove(oldest);
+                segmentHasAudio.remove(oldest);
             }
         }
 
@@ -265,7 +285,20 @@ public class VideoStreamManager {
                 return EMPTY_PLAYLIST;
             }
 
-            int firstIndex = segments.keySet().iterator().next();
+            // hls.js fixes its track layout on the first segment it parses and never adds tracks
+            // later, so once audio exists, hide the leading warm-up segments whose PMT was still
+            // video-only — the player then starts straight on a segment that declares both tracks.
+            List<Integer> visible = new java.util.ArrayList<>(segments.keySet());
+            if (writer.isAudioEnabled()) {
+                while (!visible.isEmpty() && !segmentHasAudio.getOrDefault(visible.get(0), false)) {
+                    visible.remove(0);
+                }
+            }
+            if (visible.isEmpty()) {
+                return EMPTY_PLAYLIST;
+            }
+
+            int firstIndex = visible.get(0);
 
             double maxDuration = durations.values().stream().mapToDouble(Double::doubleValue).max().orElse(3.0);
             int targetDuration = Math.max(1, (int) Math.ceil(maxDuration));
@@ -276,7 +309,7 @@ public class VideoStreamManager {
             sb.append("#EXT-X-TARGETDURATION:").append(targetDuration).append("\n");
             sb.append("#EXT-X-MEDIA-SEQUENCE:").append(firstIndex).append("\n");
 
-            for (int key : segments.keySet()) {
+            for (int key : visible) {
                 // Real per-segment duration (see finalizeSegment). Carry the channel on each segment
                 // URL too: relative-URL resolution in the player drops the playlist's query string,
                 // so without it the .ts requests fall back to the default channel and channel 2+

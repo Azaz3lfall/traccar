@@ -35,6 +35,10 @@ public class VideoStreamWriter {
     private int audioContinuityCounter;
     private boolean audioEnabled;
 
+    public boolean isAudioEnabled() {
+        return audioEnabled;
+    }
+
     public void write(ByteBuf output, ByteBuf nalData, long pts, boolean isKeyFrame, int payloadType) {
         boolean isH265 = payloadType == 99;
         if (isKeyFrame) {
