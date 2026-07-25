@@ -52,6 +52,7 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Predicate;
 
 @Path("stream")
 public class VideoStreamResource extends BaseResource {
@@ -130,10 +131,14 @@ public class VideoStreamResource extends BaseResource {
         }
 
         File dir = new File(new File(config.getString(Keys.MEDIA_PATH), device.getUniqueId()), "jt1078");
-        String prefix = "CH" + channel + "_" + start.substring(0, 6) + "_" + start.substring(6, 12) + "_";
+        Predicate<String> matches = name -> matchesSegment(name, channel, start);
 
-        // 1. Already cached locally? Serve it without touching the (volatile) FTP copy.
-        File cached = findLocal(dir, prefix, ".mp4");
+        // 1. Already cached locally? Serve it without touching the (volatile) FTP copy. The remuxed
+        // copy always carries .mp4; the raw fallback keeps whatever extension the camera used.
+        File cached = findLocal(dir, matches, ".mp4");
+        if (cached == null) {
+            cached = findLocalRaw(dir, matches);
+        }
         if (cached != null) {
             return status("ready", Map.of(
                     "url", "/api/media/" + device.getUniqueId() + "/jt1078/" + cached.getName(),
@@ -141,7 +146,7 @@ public class VideoStreamResource extends BaseResource {
         }
 
         // 2. Download/remux already in progress for this segment?
-        File partFile = findLocal(dir, prefix, ".part");
+        File partFile = findLocal(dir, matches, ".part");
         if (partFile != null) {
             return status("caching", Map.of("cachedSize", partFile.length(), "ftpSize", 0));
         }
@@ -156,7 +161,7 @@ public class VideoStreamResource extends BaseResource {
             String name = null;
             long ftpSize = 0;
             for (Map.Entry<String, Long> entry : listing.entrySet()) {
-                if (entry.getKey().startsWith(prefix)) {
+                if (matches.test(entry.getKey())) {
                     name = entry.getKey();
                     ftpSize = entry.getValue();
                     break;
@@ -182,7 +187,11 @@ public class VideoStreamResource extends BaseResource {
     private void startDownload(FtpConfig ftp, String name, File dir, String key) {
         Thread thread = new Thread(() -> {
             File partFile = new File(dir, name + ".part");
-            File finalFile = new File(dir, name);
+            // faststart writes a real MP4 container, so the cached copy must be named .mp4 no matter
+            // what the camera called it (the iStartek AT600 uploads .ts). Without this the file was
+            // cached as "*.ts" holding MP4 bytes and the cache lookup never found it.
+            File finalFile = new File(dir, baseName(name) + ".mp4");
+            File rawFile = new File(dir, name);
             try {
                 dir.mkdirs();
                 URI uri = URI.create(ftpUrl(ftp) + encodePath(name) + ";type=i");
@@ -190,13 +199,16 @@ public class VideoStreamResource extends BaseResource {
                         OutputStream out = new FileOutputStream(partFile)) {
                     in.transferTo(out);
                 }
+                File cachedFile;
                 if (faststart(partFile, finalFile)) {
                     partFile.delete();
+                    cachedFile = finalFile;
                 } else {
-                    // ffmpeg unavailable or failed: serve the raw file as-is.
-                    Files.move(partFile.toPath(), finalFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                    // ffmpeg unavailable or failed: serve the raw file as-is, original name kept.
+                    Files.move(partFile.toPath(), rawFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                    cachedFile = rawFile;
                 }
-                LOGGER.info("Cached recording {} ({} bytes)", name, finalFile.length());
+                LOGGER.info("Cached recording {} ({} bytes)", cachedFile.getName(), cachedFile.length());
             } catch (IOException e) {
                 LOGGER.warn("Recording download failed for {}", name, e);
                 partFile.delete();
@@ -244,9 +256,65 @@ public class VideoStreamResource extends BaseResource {
         }
     }
 
-    /** First file in {@code dir} whose name starts with {@code prefix} and ends with {@code suffix}. */
-    private File findLocal(File dir, String prefix, String suffix) {
-        File[] files = dir.listFiles((d, n) -> n.startsWith(prefix) && n.endsWith(suffix));
+    /**
+     * Recognises the uploaded segment by channel and start instant. Manufacturers name the file
+     * differently, so two conventions are accepted:
+     * <ul>
+     *   <li>JT808 style (Hikvision G40, JC182): {@code CH<ch>_<yyMMdd>_<HHmmss>_....mp4};</li>
+     *   <li>iStartek DC600 (AT600/AT603): {@code <yyyyMMdd>_<HHmmss>_<seq>_<F|I|R>.ts} — four-digit
+     *       year, no channel number, the channel encoded as a trailing letter (F = front = channel 1,
+     *       any other letter = the secondary/cabin channel).</li>
+     * </ul>
+     * An iStartek name with no recognisable channel letter is accepted for any channel: matching the
+     * instant is better than never matching at all, and the segment list already comes per channel.
+     */
+    private static boolean matchesSegment(String name, int channel, String start) {
+        String date = start.substring(0, 6);
+        String time = start.substring(6, 12);
+        if (name.startsWith("CH" + channel + "_" + date + "_" + time + "_")) {
+            return true;
+        }
+        if (!name.startsWith("20" + date + "_" + time + "_")) {
+            return false;
+        }
+        // Strip the temporary suffix before the extension, so an in-flight "....ts.part" still
+        // resolves to the channel letter instead of the "s" of ".ts".
+        String base = name;
+        if (base.endsWith(".part")) {
+            base = base.substring(0, base.length() - ".part".length());
+        } else if (base.endsWith(".tmp")) {
+            base = base.substring(0, base.length() - ".tmp".length());
+        }
+        base = baseName(base);
+        if (base.isEmpty()) {
+            return false;
+        }
+        char marker = base.charAt(base.length() - 1);
+        if (!Character.isLetter(marker)) {
+            return true;
+        }
+        return Character.toUpperCase(marker) == 'F' ? channel == 1 : channel != 1;
+    }
+
+    /** File name without its extension; {@code a.ts.part} yields {@code a.ts}. */
+    private static String baseName(String name) {
+        int dot = name.lastIndexOf('.');
+        return dot > 0 ? name.substring(0, dot) : name;
+    }
+
+    /** First file in {@code dir} matching {@code matches} and ending with {@code suffix}. */
+    private File findLocal(File dir, Predicate<String> matches, String suffix) {
+        File[] files = dir.listFiles((d, n) -> matches.test(n) && n.endsWith(suffix));
+        return files != null && files.length > 0 ? files[0] : null;
+    }
+
+    /**
+     * Cached copy when ffmpeg was unavailable and the raw upload was kept under its original name
+     * (any extension), skipping the temporary files of an in-flight download.
+     */
+    private File findLocalRaw(File dir, Predicate<String> matches) {
+        File[] files = dir.listFiles((d, n) ->
+                matches.test(n) && !n.endsWith(".part") && !n.endsWith(".tmp"));
         return files != null && files.length > 0 ? files[0] : null;
     }
 
