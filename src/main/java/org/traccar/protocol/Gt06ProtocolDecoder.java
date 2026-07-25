@@ -844,6 +844,15 @@ public class Gt06ProtocolDecoder extends BaseProtocolDecoder {
                 getLastLocation(position, null);
             }
 
+            // nanoTAG (Kaori) GT06 relay sets a bogus ignition bit in the 0x12 GPS packet that
+            // contradicts (and, arriving last, overwrites) the correct value from the 0x13 status
+            // packet, causing ignitionOn/Off to flap. Drop ignition from non-status GPS packets so
+            // CopyAttributesHandler (processing.copyAttributes includes 'ignition') inherits the
+            // last real value from the status packet.
+            if ("nanotagpro".equals(model) && !hasStatus(type, model)) {
+                position.getAttributes().remove(Position.KEY_IGNITION);
+            }
+
             if (hasLbs(type) && buf.readableBytes() > 6) {
                 boolean hasLength = hasStatus(type, model)
                         && type != MSG_LBS_STATUS
